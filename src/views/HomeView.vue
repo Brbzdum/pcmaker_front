@@ -124,6 +124,9 @@
         </div>
         <div class="promo-image">
           <img src="https://via.placeholder.com/500x300?text=Конфигуратор" alt="Конфигуратор ПК" />
+          <div class="pcmaker-logo-overlay">
+            <PcMakerLogo />
+          </div>
         </div>
       </div>
     </section>
@@ -229,6 +232,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import { useTheme } from '@/composables/useTheme'
+import PcMakerLogo from '@/components/PcMakerLogo.vue'
 
 const { currentTheme } = useTheme()
 </script>
@@ -489,14 +493,34 @@ section {
 /* Промо конфигуратора */
 .configurator-promo {
   width: 100%;
-  background-color: var(--light-color);
   padding: 5rem 2rem;
   transition: background-color 0.3s ease;
   margin: 4rem 0;
+  position: relative;
 }
 
 :global(.theme-dark) .configurator-promo {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: #0A1232 !important; /* Темно-синий фон как на скрине */
+  border-top: 1px solid rgba(76, 194, 255, 0.2);
+  border-bottom: 1px solid rgba(76, 194, 255, 0.2);
+}
+
+:global(.theme-dark) .configurator-promo h2 {
+  color: #ffffff !important; /* Белый цвет для заголовка */
+  text-shadow: 0 0 10px rgba(0, 170, 255, 0.5); /* Неоновое свечение */
+}
+
+:global(.theme-dark) .promo-text p {
+  color: #b8c7ff !important; /* Светло-голубой для параграфа */
+}
+
+:global(.theme-dark) .promo-features li {
+  color: #e0e6ff !important; /* Светлый цвет для пунктов списка */
+}
+
+:global(.theme-dark) .promo-features li::before {
+  color: #4cc2ff !important; /* Яркая галочка */
+  text-shadow: 0 0 5px rgba(76, 194, 255, 0.8); /* Свечение для галочки */
 }
 
 .promo-content {
@@ -544,16 +568,23 @@ section {
   font-weight: bold;
 }
 
-:global(.theme-dark) .promo-features li::before {
-  color: #4cc2ff;
-}
-
 .promo-image {
   flex: 1;
+  position: relative;
+}
+
+.pcmaker-logo-overlay {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 120px;
+  height: 60px;
+  opacity: 0.8;
+  z-index: 2;
 }
 
 .promo-image img {
-  width: 100%;
+  width: 300%;
   border-radius: 8px;
   box-shadow: 0 5px 15px var(--shadow-color);
 }
@@ -646,12 +677,13 @@ section {
 }
 
 :global(.theme-dark) .btn-details {
-  background-color: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: #232434 !important;
+  color: #fff !important;
+  border: 1px solid #4cc2ff !important;
 }
 
 :global(.theme-dark) .btn-details:hover {
-  background-color: rgba(255, 255, 255, 0.25);
+  background-color: #2a2d4a !important;
 }
 
 .btn-cart {
@@ -691,7 +723,9 @@ section {
 }
 
 :global(.theme-dark) .advantage-card {
-  border-color: rgba(255, 255, 255, 0.1);
+  background-color: #181922 !important;
+  color: #e0e6ff !important;
+  border: 1px solid #232434 !important;
 }
 
 .advantage-card:hover {

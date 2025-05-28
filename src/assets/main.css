@@ -36,3 +36,93 @@ a,
     padding: 0 2rem;
   }
 } */
+
+/* Глобальный фикс для кнопок при переключении темы */
+.theme-dark button,
+.theme-dark .btn,
+.theme-dark .btn-primary,
+.theme-dark .btn-secondary,
+.theme-dark .btn-details,
+.theme-dark .btn-cart,
+.theme-dark .btn-category,
+.theme-dark .btn-clear,
+.theme-dark .btn-submit,
+.theme-dark [class*="btn-"] {
+  background-color: #232434 !important;
+  color: white !important;
+  border: 1px solid #4cc2ff !important;
+}
+
+.theme-dark button:hover,
+.theme-dark .btn:hover,
+.theme-dark .btn-primary:hover,
+.theme-dark .btn-secondary:hover,
+.theme-dark .btn-details:hover,
+.theme-dark .btn-cart:hover,
+.theme-dark .btn-category:hover,
+.theme-dark .btn-clear:hover,
+.theme-dark .btn-submit:hover,
+.theme-dark [class*="btn-"]:hover {
+  background-color: #2a2d4a !important;
+  color: #4cc2ff !important;
+}
+
+/* Специальные кнопки всегда должны иметь яркий фон */
+.theme-dark .btn-primary,
+.theme-dark .btn-cart,
+.theme-dark .btn-category,
+.theme-dark .btn-submit {
+  background-color: #00aaff !important;
+  color: white !important;
+}
+
+.theme-dark .btn-primary:hover,
+.theme-dark .btn-cart:hover,
+.theme-dark .btn-category:hover,
+.theme-dark .btn-submit:hover {
+  background-color: #0088cc !important;
+  color: white !important;
+}
+
+/* Глобальный фикс для текста и форм в темной теме */
+.theme-dark h1,
+.theme-dark h2,
+.theme-dark h3,
+.theme-dark h4,
+.theme-dark h5,
+.theme-dark h6,
+.theme-dark p,
+.theme-dark li,
+.theme-dark label,
+.theme-dark .promo-text p,
+.theme-dark .promo-features li,
+.theme-dark .form-group label {
+  color: #e0e6ff !important;
+}
+
+/* Форма входа в темной теме */
+.theme-dark input[type="text"],
+.theme-dark input[type="password"],
+.theme-dark input[type="email"],
+.theme-dark input[type="number"],
+.theme-dark textarea,
+.theme-dark select {
+  background-color: #232434 !important;
+  color: #ffffff !important;
+  border: 1px solid #444 !important;
+}
+
+.theme-dark input::placeholder {
+  color: #aaaaaa !important;
+}
+
+/* Особый фикс для LoginView */
+.theme-dark .form-container {
+  background-color: #181922 !important;
+}
+
+.theme-dark .login-form h2,
+.theme-dark .register-form h2,
+.theme-dark .form-group label {
+  color: #ffffff !important;
+}

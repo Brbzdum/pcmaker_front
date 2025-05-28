@@ -211,9 +211,29 @@ const handleRegister = async () => {
 }
 
 :global(.theme-dark) .form-container {
-  background-color: #1e1e2f;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: #181922 !important;
+  color: #fff !important;
+}
+
+:global(.theme-dark) .form-container,
+:global(.theme-dark) .form-container * {
+  color: #fff !important;
+}
+
+:global(.theme-dark) .form-group input {
+  background-color: #232434 !important;
+  color: #ffffff !important;
+  border: 1px solid #444 !important;
+  box-shadow: 0 0 0 1px rgba(76, 194, 255, 0.1);
+}
+
+:global(.theme-dark) .form-group label {
+  color: #b8c7ff !important;
+  font-weight: bold !important;
+}
+
+:global(.theme-dark) h2 {
+  color: #fff !important;
 }
 
 .tabs {
@@ -262,10 +282,6 @@ h2 {
   text-align: center;
 }
 
-:global(.theme-dark) h2 {
-  color: #ffffff;
-}
-
 .form-group {
   margin-bottom: 1.5rem;
 }
@@ -276,28 +292,12 @@ h2 {
   font-weight: bold;
 }
 
-:global(.theme-dark) .form-group label {
-  color: rgba(255, 255, 255, 0.9);
-}
-
 .form-group input {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 1rem;
-}
-
-:global(.theme-dark) .form-group input {
-  background-color: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-}
-
-:global(.theme-dark) .form-group input:focus {
-  border-color: #4cc2ff;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(76, 194, 255, 0.3);
 }
 
 .btn-submit {

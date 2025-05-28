@@ -13,12 +13,19 @@ export function useTheme() {
     // Обновляем значение
     currentTheme.value = theme
     
-    // Обновляем класс на #app для активации CSS-правил вместо body
+    // Обновляем класс на #app И на body для двойной надежности
     const appElement = document.getElementById('app')
     if (appElement) {
       appElement.classList.remove('theme-light', 'theme-dark')
       appElement.classList.add(`theme-${theme}`)
     }
+    
+    // Добавляем класс также к body
+    document.body.classList.remove('theme-light', 'theme-dark')
+    document.body.classList.add(`theme-${theme}`)
+    
+    // Также добавляем атрибут data-theme для дополнительной совместимости
+    document.documentElement.setAttribute('data-theme', theme)
     
     // Сохраняем выбор пользователя в localStorage
     localStorage.setItem('theme', theme)

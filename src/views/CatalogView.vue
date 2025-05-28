@@ -221,16 +221,29 @@ h1 {
 .btn-clear {
   width: 100%;
   padding: 0.75rem;
-  background-color: var(--light-color);
-  border: 1px solid var(--border-color);
+  background-color: #f44336;
+  color: white;
+  border: none;
   border-radius: 4px;
+  font-weight: bold;
   cursor: pointer;
+  margin-top: 1rem;
   transition: background-color 0.3s;
-  color: var(--text-color);
 }
 
 .btn-clear:hover {
-  background-color: #e1e1e1;
+  background-color: #d32f2f;
+}
+
+:global(.theme-dark) .btn-clear {
+  background-color: #d32f2f !important;
+  color: white !important;
+  border: none !important;
+}
+
+:global(.theme-dark) .btn-clear:hover {
+  background-color: #b71c1c !important;
+  color: white !important;
 }
 
 .components-list {
@@ -293,21 +306,40 @@ h1 {
 .component-actions {
   display: flex;
   justify-content: center;
+  margin-top: 1rem;
 }
 
 .btn-add {
-  width: 100%;
   padding: 0.75rem;
-  background-color: var(--primary-color);
+  background-color: #4CAF50;
   color: white;
   border: none;
   border-radius: 4px;
+  font-weight: bold;
   cursor: pointer;
+  width: 100%;
   transition: background-color 0.3s;
 }
 
 .btn-add:hover {
-  background-color: #2980b9;
+  background-color: #388E3C;
+}
+
+:global(.theme-dark) .btn-add {
+  background-color: #4CAF50 !important;
+  color: white !important;
+  border: none !important;
+}
+
+:global(.theme-dark) .btn-add:hover {
+  background-color: #388E3C !important;
+  color: white !important;
+}
+
+:global(.theme-dark) .filters,
+:global(.theme-dark) .component-card {
+  background-color: #181922 !important;
+  border: 1px solid #232434 !important;
 }
 
 @media (min-width: 1600px) {

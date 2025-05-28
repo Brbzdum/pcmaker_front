@@ -285,7 +285,7 @@ main {
 }
 
 .footer-links {
-  display: flex;
+    display: flex;
   flex-wrap: wrap;
   gap: 3rem;
 }
@@ -343,7 +343,7 @@ main {
     height: auto;
     padding: 1rem 0;
   }
-  
+
   .header-left, .header-right {
     width: 100%;
     flex-direction: column;
@@ -360,7 +360,7 @@ main {
     justify-content: center;
     margin-bottom: 1rem;
   }
-  
+
   .auth-cart-container {
     width: 100%;
     justify-content: center;
