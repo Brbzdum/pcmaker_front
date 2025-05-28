@@ -1,0 +1,24 @@
+<template>
+  <svg
+          viewBox="0 0 500 250"
+          xmlns="http://www.w3.org/2000/svg"
+          class="pcmaker-logo"
+  >
+    <!-- Monitor -->
+    <rect x="20" y="30" width="140" height="100" rx="10" class="neon-blue" />
+    <!-- Tower inside monitor -->
+    <rect x="65" y="45" width="50" height="70" rx="6" class="neon-pink" />
+    <circle cx="90" cy="100" r="4" class="neon-pink" />
+    <line x1="70" y1="60" x2="110" y2="60" class="neon-pink-line" stroke-width="4" />
+    <line x1="70" y1="70" x2="110" y2="70" class="neon-pink-line" stroke-width="4" />
+
+    <!-- Mouse -->
+    <rect x="190" y="50" width="60" height="90" rx="30" class="neon-orange" />
+    <line x1="220" y1="50" x2="220" y2="70" class="neon-orange-line" stroke-width="4" />
+    <line x1="220" y1="30" x2="220" y2="50" class="neon-orange-line" stroke-width="4" />
+
+    <!-- Text -->
+    <text x="20" y="200" class="neon-text">PcMaker</text>
+  </svg>
+</template>
+
