@@ -9,6 +9,9 @@ interface Component {
   description: string
   manufacturer: string
   specifications: Record<string, any>
+  imageUrl?: string
+  rating?: number
+  categoryId?: number
 }
 
 interface Filter {
@@ -16,6 +19,8 @@ interface Filter {
   manufacturer?: string[]
   priceMin?: number
   priceMax?: number
+  categoryIds?: number[]
+  searchQuery?: string
 }
 
 interface CatalogState {
@@ -55,7 +60,7 @@ export const useCatalogStore = defineStore('catalog', {
       this.error = null
 
       try {
-        const response = await apiClient.get('/components')
+        const response = await apiClient.get('/products/pc-components')
         this.components = response.data
         this.filteredComponents = response.data
         
@@ -77,7 +82,7 @@ export const useCatalogStore = defineStore('catalog', {
       this.error = null
 
       try {
-        const response = await apiClient.get(`/components?type=${type}`)
+        const response = await apiClient.get(`/products/component-type/${type}`)
         return response.data
       } catch (error: any) {
         this.error = error.response?.data?.message || `Failed to fetch ${type} components`
@@ -92,11 +97,41 @@ export const useCatalogStore = defineStore('catalog', {
       this.error = null
 
       try {
-        const response = await apiClient.get(`/components/${id}`)
+        const response = await apiClient.get(`/products/${id}`)
         return response.data
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to fetch component details'
         return null
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    async fetchComponentsByCategory(categoryId: number) {
+      this.isLoading = true
+      this.error = null
+
+      try {
+        const response = await apiClient.get(`/products/category/${categoryId}`)
+        return response.data
+      } catch (error: any) {
+        this.error = error.response?.data?.message || 'Failed to fetch components by category'
+        return []
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    async searchComponents(query: string) {
+      this.isLoading = true
+      this.error = null
+
+      try {
+        const response = await apiClient.get(`/products/search?query=${encodeURIComponent(query)}`)
+        return response.data
+      } catch (error: any) {
+        this.error = error.response?.data?.message || 'Failed to search components'
+        return []
       } finally {
         this.isLoading = false
       }
@@ -132,6 +167,22 @@ export const useCatalogStore = defineStore('catalog', {
 
       if (this.filter.priceMax !== undefined) {
         filtered = filtered.filter(c => c.price <= this.filter.priceMax!)
+      }
+
+      // Filter by category
+      if (this.filter.categoryIds && this.filter.categoryIds.length > 0) {
+        filtered = filtered.filter(c => c.categoryId && this.filter.categoryIds!.includes(c.categoryId))
+      }
+
+      // Filter by search query
+      if (this.filter.searchQuery) {
+        const query = this.filter.searchQuery.toLowerCase()
+        filtered = filtered.filter(c => 
+          c.name.toLowerCase().includes(query) || 
+          c.description.toLowerCase().includes(query) ||
+          c.manufacturer.toLowerCase().includes(query) ||
+          c.type.toLowerCase().includes(query)
+        )
       }
 
       this.filteredComponents = filtered

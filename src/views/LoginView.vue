@@ -65,7 +65,12 @@
           {{ authStore.getError }}
         </div>
         
-        <form @submit.prevent="handleRegister">
+        <div v-if="registrationSuccess" class="success-message">
+          {{ registrationMessage }}
+          <p>Пожалуйста, проверьте вашу электронную почту и подтвердите регистрацию, перейдя по ссылке в письме.</p>
+        </div>
+        
+        <form v-if="!registrationSuccess" @submit.prevent="handleRegister">
           <div class="form-group">
             <label for="reg-username">Username</label>
             <input 
@@ -74,6 +79,18 @@
               v-model="registerForm.username" 
               required
               :disabled="authStore.getIsLoading"
+            >
+          </div>
+          
+          <div class="form-group">
+            <label for="name">Full Name</label>
+            <input 
+              type="text" 
+              id="name" 
+              v-model="registerForm.name" 
+              required
+              :disabled="authStore.getIsLoading"
+              placeholder="Enter your full name"
             >
           </div>
           
@@ -136,6 +153,9 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const activeTab = ref('login')
+const registrationSuccess = ref(false)
+const registrationMessage = ref('')
+
 const loginForm = ref({
   username: '',
   password: ''
@@ -143,6 +163,7 @@ const loginForm = ref({
 
 const registerForm = ref({
   username: '',
+  name: '',
   email: '',
   password: '',
   confirmPassword: ''
@@ -178,14 +199,17 @@ const handleLogin = async () => {
 const handleRegister = async () => {
   if (passwordMismatch.value) return
   
-  const success = await authStore.register(
+  const result = await authStore.register(
     registerForm.value.username,
     registerForm.value.email,
-    registerForm.value.password
+    registerForm.value.password,
+    registerForm.value.name
   )
   
-  if (success) {
-    router.push(redirectPath.value)
+  if (result.success) {
+    registrationSuccess.value = true
+    registrationMessage.value = result.message
+    // Не перенаправляем пользователя, а показываем сообщение о необходимости подтверждения email
   }
 }
 </script>
@@ -344,5 +368,20 @@ h2 {
 
 :global(.theme-dark) .validation-error {
   color: #ff6b6b;
+}
+
+.success-message {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 0.75rem;
+  margin-bottom: 1.5rem;
+  border-radius: 4px;
+  text-align: center;
+}
+
+:global(.theme-dark) .success-message {
+  background-color: rgba(40, 167, 69, 0.3);
+  color: #75b798;
+  border: 1px solid rgba(40, 167, 69, 0.5);
 }
 </style> 

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import apiClient from '@/api/apiClient'
+import { useCartStore } from './cart'
 
 interface Component {
   id: number
@@ -7,16 +8,16 @@ interface Component {
   type: string
   price: number
   description: string
-}
-
-interface CompatibilityResult {
-  compatible: boolean
-  issues?: string[]
+  manufacturer: string
+  specifications: Record<string, any>
 }
 
 interface ConfiguratorState {
-  selectedComponents: { [type: string]: Component | null }
-  compatibilityResult: CompatibilityResult | null
+  selectedComponents: Record<string, Component | null>
+  compatibility: {
+    compatible: boolean
+    issues: string[]
+  } | null
   isLoading: boolean
   error: string | null
 }
@@ -33,91 +34,83 @@ export const useConfiguratorStore = defineStore('configurator', {
       Case: null,
       Cooling: null
     },
-    compatibilityResult: null,
+    compatibility: null,
     isLoading: false,
     error: null
   }),
-
+  
   getters: {
     getSelectedComponents: (state) => state.selectedComponents,
-    getCompatibilityResult: (state) => state.compatibilityResult,
-    getTotalPrice: (state) => {
-      let total = 0
-      Object.values(state.selectedComponents).forEach(component => {
-        if (component) {
-          total += component.price
-        }
-      })
-      return total
-    },
-    isConfigurationComplete: (state) => {
-      // Check if all required components are selected
-      const requiredTypes = ['CPU', 'Motherboard', 'RAM', 'Storage', 'PowerSupply', 'Case']
-      return requiredTypes.every(type => state.selectedComponents[type] !== null)
-    },
+    getCompatibility: (state) => state.compatibility,
     getIsLoading: (state) => state.isLoading,
-    getError: (state) => state.error
+    getError: (state) => state.error,
+    getTotalPrice: (state) => {
+      return Object.values(state.selectedComponents)
+        .filter(component => component !== null)
+        .reduce((total, component) => total + component!.price, 0)
+    },
+    getSelectedComponentIds: (state) => {
+      return Object.values(state.selectedComponents)
+        .filter(component => component !== null)
+        .map(component => component!.id)
+    }
   },
-
+  
   actions: {
-    selectComponent(type: string, component: Component) {
+    selectComponent(type: string, component: Component | null) {
       this.selectedComponents[type] = component
-      // Reset compatibility result when components change
-      this.compatibilityResult = null
+      this.checkCompatibility()
     },
-
-    removeComponent(type: string) {
-      this.selectedComponents[type] = null
-      // Reset compatibility result when components change
-      this.compatibilityResult = null
+    
+    clearConfiguration() {
+      for (const key in this.selectedComponents) {
+        this.selectedComponents[key as keyof typeof this.selectedComponents] = null
+      }
+      this.compatibility = null
     },
-
-    resetConfiguration() {
-      Object.keys(this.selectedComponents).forEach(type => {
-        this.selectedComponents[type] = null
-      })
-      this.compatibilityResult = null
-    },
-
+    
     async checkCompatibility() {
+      const componentIds = this.getSelectedComponentIds
+      
+      if (componentIds.length < 2) {
+        this.compatibility = {
+          compatible: true,
+          issues: []
+        }
+        return
+      }
+      
       this.isLoading = true
       this.error = null
-
-      // Create a payload with component IDs
-      const componentIds = Object.entries(this.selectedComponents)
-        .filter(([_, component]) => component !== null)
-        .map(([_, component]) => component!.id)
-
+      
       try {
         const response = await apiClient.post('/compatibility/check', {
           componentIds
         })
         
-        this.compatibilityResult = response.data
+        this.compatibility = response.data
         return response.data
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to check compatibility'
-        this.compatibilityResult = {
-          compatible: false,
-          issues: ['An error occurred while checking compatibility']
-        }
-        return this.compatibilityResult
+        return null
       } finally {
         this.isLoading = false
       }
     },
-
+    
     async saveConfiguration(name: string) {
+      const componentIds = this.getSelectedComponentIds
+      
+      if (componentIds.length === 0) {
+        this.error = 'Configuration is empty'
+        return false
+      }
+      
       this.isLoading = true
       this.error = null
-
-      // Create a payload with component IDs
-      const componentIds = Object.entries(this.selectedComponents)
-        .filter(([_, component]) => component !== null)
-        .map(([_, component]) => component!.id)
-
+      
       try {
-        const response = await apiClient.post('/profile/configurations', {
+        const response = await apiClient.post('/configurations', {
           name,
           componentIds
         })
@@ -129,6 +122,23 @@ export const useConfiguratorStore = defineStore('configurator', {
       } finally {
         this.isLoading = false
       }
+    },
+    
+    async addConfigurationToCart() {
+      const cartStore = useCartStore()
+      let success = true
+      
+      for (const type in this.selectedComponents) {
+        const component = this.selectedComponents[type as keyof typeof this.selectedComponents]
+        if (component) {
+          const result = await cartStore.addToCart(component.id, 1)
+          if (!result) {
+            success = false
+          }
+        }
+      }
+      
+      return success
     }
   }
 }) 

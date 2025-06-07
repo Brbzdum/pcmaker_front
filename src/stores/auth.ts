@@ -5,6 +5,8 @@ interface User {
   id: number
   username: string
   email: string
+  name?: string
+  roles?: string[]
 }
 
 interface AuthState {
@@ -15,12 +17,23 @@ interface AuthState {
 }
 
 export const useAuthStore = defineStore('auth', {
-  state: (): AuthState => ({
-    user: null,
-    isAuthenticated: !!localStorage.getItem('access_token'),
-    isLoading: false,
-    error: null
-  }),
+  state: (): AuthState => {
+    // Проверяем валидность токена
+    const token = localStorage.getItem('access_token');
+    const isValidToken = !!token && token.includes('.');
+    
+    if (!isValidToken && token) {
+      // Если токен невалидный, удаляем его
+      localStorage.removeItem('access_token');
+    }
+    
+    return {
+      user: null,
+      isAuthenticated: isValidToken,
+      isLoading: false,
+      error: null
+    }
+  },
   
   getters: {
     getUser: (state) => state.user,
@@ -40,16 +53,36 @@ export const useAuthStore = defineStore('auth', {
           password
         })
         
-        const { accessToken, refreshToken, user } = response.data
+        console.log('Login response:', response.data);
         
-        localStorage.setItem('access_token', accessToken)
-        localStorage.setItem('refresh_token', refreshToken)
+        // Проверяем структуру ответа
+        const responseData = response.data;
         
-        this.user = user
+        // Для совместимости с различными форматами ответа
+        const token = responseData.token || responseData.accessToken;
+        const userData = responseData.user || responseData;
+        
+        if (!token) {
+          throw new Error('Token not found in response');
+        }
+        
+        localStorage.setItem('access_token', token);
+        
+        this.user = {
+          id: userData.id,
+          username: userData.username,
+          email: userData.email,
+          roles: userData.roles
+        }
         this.isAuthenticated = true
         
         return true
       } catch (error: any) {
+        console.error('Login error:', error);
+        if (error.response) {
+          console.error('Response data:', error.response.data);
+          console.error('Status code:', error.response.status);
+        }
         this.error = error.response?.data?.message || 'Login failed'
         return false
       } finally {
@@ -57,29 +90,43 @@ export const useAuthStore = defineStore('auth', {
       }
     },
     
-    async register(username: string, email: string, password: string) {
+    async register(username: string, email: string, password: string, name: string) {
       this.isLoading = true
       this.error = null
       
       try {
-        const response = await apiClient.post('/auth/register', {
+        console.log('Sending registration request with data:', { username, email, name });
+        
+        const response = await apiClient.post('/auth/signup', {
           username,
           email,
-          password
+          password,
+          name
         })
         
-        const { accessToken, refreshToken, user } = response.data
+        console.log('Registration response:', response.data);
         
-        localStorage.setItem('access_token', accessToken)
-        localStorage.setItem('refresh_token', refreshToken)
-        
-        this.user = user
-        this.isAuthenticated = true
-        
-        return true
+        // В случае успешной регистрации показываем сообщение о необходимости подтверждения почты
+        // Не выполняем автоматический вход, т.к. аккаунт не активирован
+        return {
+          success: true,
+          needEmailVerification: true,
+          message: response.data.message || 'Registration successful! Please check your email to verify your account.'
+        }
       } catch (error: any) {
-        this.error = error.response?.data?.message || 'Registration failed'
-        return false
+        console.error('Registration error:', error);
+        if (error.response) {
+          console.error('Response data:', error.response.data);
+          console.error('Status code:', error.response.status);
+          this.error = error.response?.data?.message || 
+                     (error.response.data && typeof error.response.data === 'string' ? error.response.data : 'Registration failed');
+        } else {
+          this.error = error.message || 'Registration failed: Network error';
+        }
+        return {
+          success: false,
+          message: this.error
+        }
       } finally {
         this.isLoading = false
       }
@@ -91,10 +138,14 @@ export const useAuthStore = defineStore('auth', {
       this.isLoading = true
       
       try {
-        const response = await apiClient.get('/profile/me')
+        const response = await apiClient.get('/users/profile')
         this.user = response.data
         return response.data
       } catch (error: any) {
+        if (error.response?.status === 401) {
+          // Если пользователь не авторизован, выполняем выход
+          this.logout();
+        }
         this.error = error.response?.data?.message || 'Failed to fetch user profile'
         return null
       } finally {
@@ -104,9 +155,18 @@ export const useAuthStore = defineStore('auth', {
     
     logout() {
       localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
       this.user = null
       this.isAuthenticated = false
+    },
+    
+    checkTokenValidity() {
+      // Проверяем валидность токена при каждом обращении к хранилищу
+      const token = localStorage.getItem('access_token');
+      if (!token || !token.includes('.')) {
+        this.logout();
+        return false;
+      }
+      return true;
     }
   }
 }) 

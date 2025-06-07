@@ -1,3 +1,9 @@
+/**
+ * DEPRECATED: Этот файл содержит моки API и больше не используется.
+ * Вместо этого приложение теперь использует реальный API.
+ * Файл сохранен только для справки.
+ */
+
 import { components, cartItems, userProfile, compatibilityResults, incompatibleResults } from './mockData';
 
 // Имитация задержки сети

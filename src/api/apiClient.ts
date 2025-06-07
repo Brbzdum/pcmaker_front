@@ -2,7 +2,7 @@ import axios from 'axios'
 import mockApi from './mockApi'
 
 // Определяем, используем ли мы реальный API или моки
-const USE_MOCK_API = true; // Изменить на false для использования реального API
+const USE_MOCK_API = false; // Изменено на false для использования реального API
 
 // Для typescript - создаем тип, который имеет структуру, похожую на axios
 const createMockClient = () => {
@@ -83,81 +83,75 @@ const createMockClient = () => {
   };
 };
 
+// Создаем реальный API-клиент
+const createRealClient = () => {
+  const instance = axios.create({
+    baseURL: '/api', // Используем относительный URL для прокси
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    withCredentials: true // Добавляем для передачи куки между доменами, если необходимо
+  });
+  
+  // Request interceptor for API calls
+  instance.interceptors.request.use(
+    (config) => {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        // Проверяем, что токен существует и правильно форматирован
+        if (token.includes('.')) {
+          config.headers['Authorization'] = `Bearer ${token}`;
+        } else {
+          // Если токен некорректный, удаляем его
+          console.warn('Invalid token format found in localStorage, removing it');
+          localStorage.removeItem('access_token');
+        }
+      }
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
+    }
+  );
+
+  // Response interceptor for API calls
+  instance.interceptors.response.use(
+    (response) => {
+      // Если ответ содержит токен авторизации, сохраняем его
+      if (response.data && response.data.token) {
+        localStorage.setItem('access_token', response.data.token);
+      }
+      return response;
+    },
+    async (error) => {
+      const originalRequest = error.config;
+      
+      // If the error is due to an expired token
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true;
+        
+        // Если на сервере произошла ошибка JWT, удаляем токен и перенаправляем
+        localStorage.removeItem('access_token');
+        
+        // Проверяем, находимся ли мы на странице логина
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+        
+        return Promise.reject(error);
+      }
+      
+      return Promise.reject(error);
+    }
+  );
+  
+  return instance;
+};
+
 const apiClient = USE_MOCK_API ? 
   // Используем мок-клиент
   createMockClient() : 
   // Или реальный Axios клиент для работы с бэкендом
-  axios.create({
-    baseURL: 'http://localhost:8080',
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  });
+  createRealClient();
 
-// Интерцепторы добавляем, только если используется реальный API
-if (!USE_MOCK_API) {
-  // Request interceptor for API calls
-  apiClient.interceptors.request.use(
-    (config) => {
-      const token = localStorage.getItem('access_token')
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`
-      }
-      return config
-    },
-    (error) => {
-      return Promise.reject(error)
-    }
-  )
-
-  // Response interceptor for API calls
-  apiClient.interceptors.response.use(
-    (response) => {
-      return response
-    },
-    async (error) => {
-      const originalRequest = error.config
-      
-      // If the error is due to an expired token and we haven't already tried to refresh
-      if (error.response.status === 401 && !originalRequest._retry) {
-        originalRequest._retry = true
-        
-        try {
-          // Attempt to refresh the token
-          const refreshToken = localStorage.getItem('refresh_token')
-          if (!refreshToken) {
-            // No refresh token available, redirect to login
-            window.location.href = '/login'
-            return Promise.reject(error)
-          }
-          
-          const response = await axios.post(
-            'http://localhost:8080/auth/refresh',
-            { refreshToken }
-          )
-          
-          const { accessToken } = response.data
-          
-          // Save the new token
-          localStorage.setItem('access_token', accessToken)
-          
-          // Update the authorization header
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`
-          
-          // Retry the original request
-          return axios(originalRequest)
-        } catch (refreshError) {
-          // Refresh token failed, redirect to login
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
-          window.location.href = '/login'
-          return Promise.reject(refreshError)
-        }
-      }
-      
-      return Promise.reject(error)
-    }
-  )
-}
-
-export default apiClient 
+export default apiClient; 

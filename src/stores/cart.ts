@@ -7,6 +7,7 @@ interface CartItem {
   name: string
   price: number
   quantity: number
+  type: string
 }
 
 interface CartState {
@@ -23,11 +24,19 @@ export const useCartStore = defineStore('cart', {
   }),
 
   getters: {
-    getCartItems: (state) => state.items,
-    getCartTotal: (state) => state.items.reduce((total, item) => total + (item.price * item.quantity), 0),
-    getCartItemCount: (state) => state.items.reduce((count, item) => count + item.quantity, 0),
+    getItems: (state) => state.items,
     getIsLoading: (state) => state.isLoading,
-    getError: (state) => state.error
+    getError: (state) => state.error,
+    getTotal: (state) => {
+      return state.items.reduce((sum, item) => {
+        return sum + (item.price * item.quantity)
+      }, 0)
+    },
+    getItemCount: (state) => {
+      return state.items.reduce((count, item) => {
+        return count + item.quantity
+      }, 0)
+    }
   },
 
   actions: {
@@ -57,42 +66,48 @@ export const useCartStore = defineStore('cart', {
           quantity
         })
         
-        await this.fetchCart()
-        return response.data
+        this.items = response.data
+        return true
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to add item to cart'
-        return null
+        return false
       } finally {
         this.isLoading = false
       }
     },
 
-    async updateCartItem(cartItemId: number, quantity: number) {
+    async updateCartItem(itemId: number, quantity: number) {
       this.isLoading = true
       this.error = null
 
       try {
-        const response = await apiClient.put(`/cart/${cartItemId}`, {
+        const response = await apiClient.put(`/cart/${itemId}`, {
           quantity
         })
         
-        await this.fetchCart()
-        return response.data
+        const index = this.items.findIndex(item => item.id === itemId)
+        if (index !== -1) {
+          this.items[index] = response.data
+        }
+        
+        return true
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to update cart item'
-        return null
+        return false
       } finally {
         this.isLoading = false
       }
     },
 
-    async removeFromCart(cartItemId: number) {
+    async removeFromCart(itemId: number) {
       this.isLoading = true
       this.error = null
 
       try {
-        await apiClient.delete(`/cart/${cartItemId}`)
-        await this.fetchCart()
+        await apiClient.delete(`/cart/${itemId}`)
+        
+        this.items = this.items.filter(item => item.id !== itemId)
+        
         return true
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to remove item from cart'
@@ -108,6 +123,7 @@ export const useCartStore = defineStore('cart', {
 
       try {
         await apiClient.delete('/cart')
+        
         this.items = []
         return true
       } catch (error: any) {
