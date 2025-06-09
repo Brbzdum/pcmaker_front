@@ -1,39 +1,55 @@
 import { defineStore } from 'pinia'
 import apiClient from '@/api/apiClient'
 
-interface CartItem {
-  id: number
+interface CartItemDto {
   productId: number
-  name: string
-  price: number
+  productName: string
+  productDescription: string
+  productImageUrl: string
+  productPrice: number
   quantity: number
-  type: string
+  totalPrice: number
+  stockError?: boolean // Флаг для отслеживания ошибок наличия на складе
+  outOfStock?: boolean // Флаг для отображения в UI
+}
+
+interface CartDto {
+  id: number
+  userId: number
+  userName: string
+  items: CartItemDto[]
+  createdAt: string
+  updatedAt: string
 }
 
 interface CartState {
-  items: CartItem[]
+  cart: CartDto | null
   isLoading: boolean
   error: string | null
+  lastErrorProductId: number | null // Хранит ID товара, вызвавшего последнюю ошибку
 }
 
 export const useCartStore = defineStore('cart', {
   state: (): CartState => ({
-    items: [],
+    cart: null,
     isLoading: false,
-    error: null
+    error: null,
+    lastErrorProductId: null
   }),
 
   getters: {
-    getItems: (state) => state.items,
+    getItems: (state) => state.cart?.items || [],
     getIsLoading: (state) => state.isLoading,
     getError: (state) => state.error,
     getTotal: (state) => {
-      return state.items.reduce((sum, item) => {
-        return sum + (item.price * item.quantity)
+      if (!state.cart?.items) return 0
+      return state.cart.items.reduce((sum, item) => {
+        return sum + item.totalPrice
       }, 0)
     },
     getItemCount: (state) => {
-      return state.items.reduce((count, item) => {
+      if (!state.cart?.items) return 0
+      return state.cart.items.reduce((count, item) => {
         return count + item.quantity
       }, 0)
     }
@@ -45,12 +61,33 @@ export const useCartStore = defineStore('cart', {
       this.error = null
 
       try {
-        const response = await apiClient.get('/cart')
-        this.items = response.data
+        const userId = localStorage.getItem('user_id') || '1'
+        const response = await apiClient.get(`/cart?userId=${userId}`)
+        this.cart = response.data
+        
+        // Проверяем товары на наличие ошибок
+        if (this.cart?.items && this.lastErrorProductId) {
+          const updatedItems = [];
+          for (let i = 0; i < this.cart.items.length; i++) {
+            const item = this.cart.items[i];
+            if (item.productId === this.lastErrorProductId) {
+              updatedItems.push({
+                ...item,
+                outOfStock: true,
+                stockError: true
+              });
+            } else {
+              updatedItems.push(item);
+            }
+          }
+          this.cart.items = updatedItems;
+        }
+        
         return response.data
       } catch (error: any) {
-        this.error = error.response?.data?.message || 'Failed to fetch cart'
-        return []
+        console.error('Error fetching cart:', error)
+        // Не показываем ошибку в UI
+        return null
       } finally {
         this.isLoading = false
       }
@@ -61,56 +98,65 @@ export const useCartStore = defineStore('cart', {
       this.error = null
 
       try {
-        const response = await apiClient.post('/cart', {
-          productId,
-          quantity
-        })
+        // Получаем ID пользователя из localStorage
+        const userId = localStorage.getItem('user_id') || '1' // Временно используем 1, если ID не найден
         
-        this.items = response.data
+        // Используем правильный URL и параметры запроса
+        const response = await apiClient.post(`/cart/items?userId=${userId}&productId=${productId}&quantity=${quantity}`)
+        
+        this.cart = response.data
         return true
       } catch (error: any) {
-        this.error = error.response?.data?.message || 'Failed to add item to cart'
+        console.error('Error adding to cart:', error)
+        
+        // Запоминаем ID товара, вызвавшего ошибку
+        this.lastErrorProductId = productId
+        
+        // После ошибки перезагружаем корзину, чтобы обновить состояние
+        await this.fetchCart()
         return false
       } finally {
         this.isLoading = false
       }
     },
 
-    async updateCartItem(itemId: number, quantity: number) {
+    async updateCartItem(productId: number, quantity: number) {
       this.isLoading = true
       this.error = null
 
       try {
-        const response = await apiClient.put(`/cart/${itemId}`, {
-          quantity
-        })
+        const userId = localStorage.getItem('user_id') || '1'
+        const response = await apiClient.put(`/cart/items/${productId}?userId=${userId}&quantity=${quantity}`)
         
-        const index = this.items.findIndex(item => item.id === itemId)
-        if (index !== -1) {
-          this.items[index] = response.data
-        }
-        
+        this.cart = response.data
         return true
       } catch (error: any) {
-        this.error = error.response?.data?.message || 'Failed to update cart item'
+        console.error('Error updating cart item:', error)
+        
+        // Запоминаем ID товара, вызвавшего ошибку
+        this.lastErrorProductId = productId
+        
+        // После ошибки перезагружаем корзину, чтобы обновить состояние
+        await this.fetchCart()
         return false
       } finally {
         this.isLoading = false
       }
     },
 
-    async removeFromCart(itemId: number) {
+    async removeFromCart(productId: number) {
       this.isLoading = true
       this.error = null
 
       try {
-        await apiClient.delete(`/cart/${itemId}`)
+        const userId = localStorage.getItem('user_id') || '1'
+        const response = await apiClient.delete(`/cart/items/${productId}?userId=${userId}`)
         
-        this.items = this.items.filter(item => item.id !== itemId)
-        
+        this.cart = response.data
         return true
       } catch (error: any) {
-        this.error = error.response?.data?.message || 'Failed to remove item from cart'
+        console.error('Error removing from cart:', error)
+        // Не показываем ошибку в UI
         return false
       } finally {
         this.isLoading = false
@@ -122,12 +168,15 @@ export const useCartStore = defineStore('cart', {
       this.error = null
 
       try {
-        await apiClient.delete('/cart')
+        const userId = localStorage.getItem('user_id') || '1'
+        await apiClient.delete(`/cart?userId=${userId}`)
         
-        this.items = []
+        this.cart = null
+        this.lastErrorProductId = null
         return true
       } catch (error: any) {
-        this.error = error.response?.data?.message || 'Failed to clear cart'
+        console.error('Error clearing cart:', error)
+        // Не показываем ошибку в UI
         return false
       } finally {
         this.isLoading = false

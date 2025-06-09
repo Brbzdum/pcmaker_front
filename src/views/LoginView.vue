@@ -7,19 +7,19 @@
           :class="{ active: activeTab === 'login' }"
           @click="activeTab = 'login'"
         >
-          Login
+          Вход
         </button>
         <button 
           class="tab-btn" 
           :class="{ active: activeTab === 'register' }"
           @click="activeTab = 'register'"
         >
-          Register
+          Регистрация
         </button>
       </div>
       
       <div v-if="activeTab === 'login'" class="login-form">
-        <h2>Login to Your Account</h2>
+        <h2>Вход в аккаунт</h2>
         
         <div v-if="authStore.getError" class="error-message">
           {{ authStore.getError }}
@@ -27,7 +27,7 @@
         
         <form @submit.prevent="handleLogin">
           <div class="form-group">
-            <label for="username">Username</label>
+            <label for="username">Имя пользователя</label>
             <input 
               type="text" 
               id="username" 
@@ -38,7 +38,7 @@
           </div>
           
           <div class="form-group">
-            <label for="password">Password</label>
+            <label for="password">Пароль</label>
             <input 
               type="password" 
               id="password" 
@@ -53,13 +53,13 @@
             class="btn-submit"
             :disabled="authStore.getIsLoading"
           >
-            {{ authStore.getIsLoading ? 'Logging in...' : 'Login' }}
+            {{ authStore.getIsLoading ? 'Выполняется вход...' : 'Войти' }}
           </button>
         </form>
       </div>
       
       <div v-else-if="activeTab === 'register'" class="register-form">
-        <h2>Create an Account</h2>
+        <h2>Создание аккаунта</h2>
         
         <div v-if="authStore.getError" class="error-message">
           {{ authStore.getError }}
@@ -72,26 +72,34 @@
         
         <form v-if="!registrationSuccess" @submit.prevent="handleRegister">
           <div class="form-group">
-            <label for="reg-username">Username</label>
+            <label for="reg-username">Имя пользователя</label>
             <input 
               type="text" 
               id="reg-username" 
               v-model="registerForm.username" 
               required
               :disabled="authStore.getIsLoading"
+              @blur="validateUsername"
             >
+            <div v-if="validationErrors.username" class="validation-error">
+              {{ validationErrors.username }}
+            </div>
           </div>
           
           <div class="form-group">
-            <label for="name">Full Name</label>
+            <label for="name">Полное имя</label>
             <input 
               type="text" 
               id="name" 
               v-model="registerForm.name" 
               required
               :disabled="authStore.getIsLoading"
-              placeholder="Enter your full name"
+              placeholder="Введите ваше полное имя"
+              @blur="validateName"
             >
+            <div v-if="validationErrors.name" class="validation-error">
+              {{ validationErrors.name }}
+            </div>
           </div>
           
           <div class="form-group">
@@ -102,40 +110,52 @@
               v-model="registerForm.email" 
               required
               :disabled="authStore.getIsLoading"
+              @blur="validateEmail"
             >
+            <div v-if="validationErrors.email" class="validation-error">
+              {{ validationErrors.email }}
+            </div>
           </div>
           
           <div class="form-group">
-            <label for="reg-password">Password</label>
+            <label for="reg-password">Пароль</label>
             <input 
               type="password" 
               id="reg-password" 
               v-model="registerForm.password" 
               required
               :disabled="authStore.getIsLoading"
+              @blur="validatePassword"
             >
+            <div v-if="validationErrors.password" class="validation-error">
+              {{ validationErrors.password }}
+            </div>
+            <div class="password-requirements">
+              <div :class="{ 'requirement-met': passwordLength }">• Минимум 6 символов</div>
+            </div>
           </div>
           
           <div class="form-group">
-            <label for="confirm-password">Confirm Password</label>
+            <label for="confirm-password">Подтверждение пароля</label>
             <input 
               type="password" 
               id="confirm-password" 
               v-model="registerForm.confirmPassword" 
               required
               :disabled="authStore.getIsLoading"
+              @blur="validateConfirmPassword"
             >
-            <div v-if="passwordMismatch" class="validation-error">
-              Passwords do not match
+            <div v-if="validationErrors.confirmPassword" class="validation-error">
+              {{ validationErrors.confirmPassword }}
             </div>
           </div>
           
           <button 
             type="submit" 
             class="btn-submit"
-            :disabled="authStore.getIsLoading || passwordMismatch"
+            :disabled="authStore.getIsLoading || hasValidationErrors"
           >
-            {{ authStore.getIsLoading ? 'Registering...' : 'Register' }}
+            {{ authStore.getIsLoading ? 'Регистрация...' : 'Зарегистрироваться' }}
           </button>
         </form>
       </div>
@@ -169,14 +189,96 @@ const registerForm = ref({
   confirmPassword: ''
 })
 
+// Объект для хранения ошибок валидации
+const validationErrors = ref({
+  username: '',
+  name: '',
+  email: '',
+  password: '',
+  confirmPassword: ''
+})
+
+// Проверяем длину пароля
+const passwordLength = computed(() => registerForm.value.password.length >= 6)
+
+// Проверяем, есть ли ошибки валидации
+const hasValidationErrors = computed(() => {
+  return Object.values(validationErrors.value).some(error => error !== '')
+})
+
+// Валидация имени пользователя
+const validateUsername = () => {
+  const username = registerForm.value.username
+  if (!username) {
+    validationErrors.value.username = 'Имя пользователя не может быть пустым'
+  } else if (username.length < 3) {
+    validationErrors.value.username = 'Имя пользователя должно быть не менее 3 символов'
+  } else if (username.length > 50) {
+    validationErrors.value.username = 'Имя пользователя должно быть не более 50 символов'
+  } else if (!/^[a-zA-Z0-9_]*$/.test(username)) {
+    validationErrors.value.username = 'Имя пользователя может содержать только буквы, цифры и знак подчеркивания'
+  } else {
+    validationErrors.value.username = ''
+  }
+}
+
+// Валидация имени
+const validateName = () => {
+  const name = registerForm.value.name
+  if (!name) {
+    validationErrors.value.name = 'Имя не может быть пустым'
+  } else {
+    validationErrors.value.name = ''
+  }
+}
+
+// Валидация email
+const validateEmail = () => {
+  const email = registerForm.value.email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!email) {
+    validationErrors.value.email = 'Email не может быть пустым'
+  } else if (!emailRegex.test(email)) {
+    validationErrors.value.email = 'Некорректный формат email'
+  } else {
+    validationErrors.value.email = ''
+  }
+}
+
+// Валидация пароля
+const validatePassword = () => {
+  const password = registerForm.value.password
+  if (!password) {
+    validationErrors.value.password = 'Пароль не может быть пустым'
+  } else if (password.length < 6) {
+    validationErrors.value.password = 'Пароль должен быть не менее 6 символов'
+  } else if (password.length > 120) {
+    validationErrors.value.password = 'Пароль должен быть не более 120 символов'
+  } else {
+    validationErrors.value.password = ''
+  }
+
+  // Если уже есть подтверждение пароля, проверяем совпадение
+  if (registerForm.value.confirmPassword) {
+    validateConfirmPassword()
+  }
+}
+
+// Валидация подтверждения пароля
+const validateConfirmPassword = () => {
+  const password = registerForm.value.password
+  const confirmPassword = registerForm.value.confirmPassword
+  if (!confirmPassword) {
+    validationErrors.value.confirmPassword = 'Подтверждение пароля не может быть пустым'
+  } else if (password !== confirmPassword) {
+    validationErrors.value.confirmPassword = 'Пароли не совпадают'
+  } else {
+    validationErrors.value.confirmPassword = ''
+  }
+}
+
 // Check if user came from a protected route and set a redirect
 const redirectPath = computed(() => route.query.redirect as string || '/')
-
-// Check if passwords match in register form
-const passwordMismatch = computed(() => {
-  return registerForm.value.password !== registerForm.value.confirmPassword && 
-         registerForm.value.confirmPassword.length > 0
-})
 
 // If user is already logged in, redirect
 watch(() => authStore.getIsAuthenticated, (isAuthenticated) => {
@@ -197,7 +299,15 @@ const handleLogin = async () => {
 }
 
 const handleRegister = async () => {
-  if (passwordMismatch.value) return
+  // Валидация всех полей перед отправкой
+  validateUsername()
+  validateName()
+  validateEmail()
+  validatePassword()
+  validateConfirmPassword()
+  
+  // Проверяем наличие ошибок валидации
+  if (hasValidationErrors.value) return
   
   const result = await authStore.register(
     registerForm.value.username,
@@ -234,39 +344,9 @@ const handleRegister = async () => {
   overflow: hidden;
 }
 
-:global(.theme-dark) .form-container {
-  background-color: #181922 !important;
-  color: #fff !important;
-}
-
-:global(.theme-dark) .form-container,
-:global(.theme-dark) .form-container * {
-  color: #fff !important;
-}
-
-:global(.theme-dark) .form-group input {
-  background-color: #232434 !important;
-  color: #ffffff !important;
-  border: 1px solid #444 !important;
-  box-shadow: 0 0 0 1px rgba(76, 194, 255, 0.1);
-}
-
-:global(.theme-dark) .form-group label {
-  color: #b8c7ff !important;
-  font-weight: bold !important;
-}
-
-:global(.theme-dark) h2 {
-  color: #fff !important;
-}
-
 .tabs {
   display: flex;
   border-bottom: 1px solid #ddd;
-}
-
-:global(.theme-dark) .tabs {
-  border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
 .tab-btn {
@@ -280,19 +360,9 @@ const handleRegister = async () => {
   transition: background-color 0.3s;
 }
 
-:global(.theme-dark) .tab-btn {
-  color: rgba(255, 255, 255, 0.8);
-}
-
 .tab-btn.active {
   background-color: #f8f9fa;
   border-bottom: 2px solid #3498db;
-}
-
-:global(.theme-dark) .tab-btn.active {
-  background-color: rgba(0, 170, 255, 0.1);
-  border-bottom-color: #4cc2ff;
-  color: #ffffff;
 }
 
 .login-form,
@@ -322,6 +392,16 @@ h2 {
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 1rem;
+}
+
+.password-requirements {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+.requirement-met {
+  color: #28a745;
 }
 
 .btn-submit {
@@ -354,20 +434,10 @@ h2 {
   border-radius: 4px;
 }
 
-:global(.theme-dark) .error-message {
-  background-color: rgba(220, 53, 69, 0.3);
-  color: #ff6b6b;
-  border: 1px solid rgba(220, 53, 69, 0.5);
-}
-
 .validation-error {
   color: #e74c3c;
   font-size: 0.875rem;
   margin-top: 0.5rem;
-}
-
-:global(.theme-dark) .validation-error {
-  color: #ff6b6b;
 }
 
 .success-message {
@@ -377,11 +447,5 @@ h2 {
   margin-bottom: 1.5rem;
   border-radius: 4px;
   text-align: center;
-}
-
-:global(.theme-dark) .success-message {
-  background-color: rgba(40, 167, 69, 0.3);
-  color: #75b798;
-  border: 1px solid rgba(40, 167, 69, 0.5);
 }
 </style> 

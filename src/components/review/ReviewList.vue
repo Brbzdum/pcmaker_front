@@ -180,7 +180,7 @@ onMounted(loadReviews)
 .review-empty {
   padding: 2rem;
   text-align: center;
-  background-color: var(--surface-color);
+  background-color: var(--surface-color, #fff);
   border-radius: 8px;
   margin-bottom: 1.5rem;
 }
@@ -189,7 +189,7 @@ onMounted(loadReviews)
   width: 40px;
   height: 40px;
   border: 4px solid rgba(0, 0, 0, 0.1);
-  border-left-color: var(--primary-color);
+  border-left-color: var(--primary-color, #3498db);
   border-radius: 50%;
   margin: 0 auto 1rem;
   animation: spin 1s linear infinite;
@@ -206,7 +206,7 @@ onMounted(loadReviews)
 .review-summary {
   display: flex;
   padding: 1.5rem;
-  background-color: var(--surface-color);
+  background-color: var(--surface-color, #fff);
   border-radius: 8px;
   margin-bottom: 1.5rem;
   gap: 2rem;
@@ -217,7 +217,7 @@ onMounted(loadReviews)
   flex-direction: column;
   align-items: center;
   padding-right: 2rem;
-  border-right: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color, #eee);
 }
 
 .avg-rating-value {
@@ -233,17 +233,17 @@ onMounted(loadReviews)
 
 .star {
   font-size: 1.2rem;
-  color: var(--text-light-color);
+  color: var(--text-light-color, #aaa);
   margin: 0 2px;
 }
 
 .star.filled {
-  color: var(--star-color, gold);
+  color: gold;
 }
 
 .review-count {
   font-size: 0.9rem;
-  color: var(--text-light-color);
+  color: var(--text-light-color, #aaa);
 }
 
 .rating-bars {
@@ -268,7 +268,7 @@ onMounted(loadReviews)
 .bar-container {
   flex: 1;
   height: 8px;
-  background-color: var(--background-light-color);
+  background-color: var(--background-light-color, #f0f0f0);
   border-radius: 4px;
   overflow: hidden;
   margin: 0 0.5rem;
@@ -276,14 +276,14 @@ onMounted(loadReviews)
 
 .bar {
   height: 100%;
-  background-color: var(--primary-color);
+  background-color: var(--primary-color, #3498db);
 }
 
 .rating-count {
   width: 2rem;
   text-align: left;
   font-size: 0.9rem;
-  color: var(--text-light-color);
+  color: var(--text-light-color, #aaa);
 }
 
 .review-items {
@@ -294,7 +294,7 @@ onMounted(loadReviews)
 
 .review-item {
   padding: 1.5rem;
-  background-color: var(--surface-color);
+  background-color: var(--surface-color, #fff);
   border-radius: 8px;
 }
 
@@ -314,7 +314,7 @@ onMounted(loadReviews)
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background-color: var(--primary-color);
+  background-color: var(--primary-color, #3498db);
   color: white;
   display: flex;
   align-items: center;
@@ -335,7 +335,7 @@ onMounted(loadReviews)
 
 .review-date {
   font-size: 0.9rem;
-  color: var(--text-light-color);
+  color: var(--text-light-color, #aaa);
 }
 
 .review-body {
@@ -347,7 +347,7 @@ onMounted(loadReviews)
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--border-color, #eee);
   padding-top: 1rem;
 }
 
@@ -366,17 +366,17 @@ onMounted(loadReviews)
 }
 
 .btn-primary {
-  background-color: var(--primary-color);
+  background-color: var(--primary-color, #3498db);
   color: white;
 }
 
 .btn-primary:hover {
-  background-color: var(--primary-dark-color);
+  background-color: var(--primary-dark-color, #2980b9);
 }
 
 .btn-text {
   background-color: transparent;
-  color: var(--primary-color);
+  color: var(--primary-color, #3498db);
   padding: 0.5rem;
 }
 
@@ -385,12 +385,12 @@ onMounted(loadReviews)
 }
 
 .btn-danger {
-  color: var(--error-color);
+  color: var(--error-color, #d32f2f);
 }
 
 .review-reported {
   font-size: 0.9rem;
-  color: var(--warning-color);
+  color: var(--warning-color, #f39c12);
 }
 
 .review-actions-bottom {
@@ -408,7 +408,7 @@ onMounted(loadReviews)
     padding-right: 0;
     padding-bottom: 1.5rem;
     border-right: none;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color, #eee);
     margin-bottom: 1.5rem;
   }
   

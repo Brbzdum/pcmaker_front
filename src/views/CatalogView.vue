@@ -137,15 +137,15 @@
             </div>
             <h3>{{ component.name }}</h3>
             <div class="component-meta">
-              <div class="component-type">{{ component.type }}</div>
+              <div class="component-type" v-if="component.type">{{ component.type }}</div>
               <div class="component-manufacturer">{{ component.manufacturer }}</div>
             </div>
             
-            <div class="component-rating" v-if="component.rating > 0">
+            <div class="component-rating" v-if="component.rating && component.rating > 0">
               <div class="stars">
-                <span v-for="i in 5" :key="i" class="star" :class="{ 'filled': i <= Math.round(component.rating) }">★</span>
+                <span v-for="i in 5" :key="i" class="star" :class="{ 'filled': i <= Math.round(component.rating || 0) }">★</span>
               </div>
-              <span class="rating-value">{{ component.rating.toFixed(1) }}</span>
+              <span class="rating-value">{{ (component.rating || 0).toFixed(1) }}</span>
             </div>
             
             <div class="component-price">{{ component.price.toFixed(2) }} ₽</div>
@@ -166,7 +166,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCatalogStore } from '@/stores/catalog'
 import { useConfiguratorStore } from '@/stores/configurator'
@@ -258,8 +258,18 @@ const addToConfigurator = (component: any) => {
   router.push('/configurator')
 }
 
-const addToCart = (component: any) => {
-  cartStore.addToCart(component)
+const addToCart = async (component: any) => {
+  try {
+    const result = await cartStore.addToCart(component.id, 1)
+    if (result) {
+      alert('Товар добавлен в корзину')
+    } else {
+      alert('Ошибка при добавлении товара в корзину: ' + cartStore.getError)
+    }
+  } catch (error) {
+    console.error('Error adding to cart:', error)
+    alert('Ошибка при добавлении товара в корзину')
+  }
 }
 
 // Очищаем таймаут при размонтировании компонента
@@ -276,14 +286,14 @@ watch(() => {
 .catalog {
   width: 100%;
   padding: 2rem;
-  background-color: var(--background-color);
-  color: var(--text-color);
+  background-color: var(--background-color, #f8f9fa);
+  color: var(--text-color, #333);
 }
 
 h1 {
   margin-bottom: 2rem;
   text-align: center;
-  color: var(--text-color);
+  color: var(--text-color, #333);
   max-width: 1400px;
   margin-left: auto;
   margin-right: auto;
@@ -463,9 +473,9 @@ h1 {
 
 .component-type,
 .component-manufacturer {
-  color: var(--text-secondary-color);
+  color: var(--text-secondary-color, #666);
   font-size: 0.9rem;
-  background-color: var(--background-light-color);
+  background-color: var(--background-light-color, #f0f0f0);
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
 }
@@ -483,17 +493,17 @@ h1 {
 
 .star {
   font-size: 1rem;
-  color: var(--text-light-color);
+  color: var(--text-light-color, #aaa);
   margin-right: 2px;
 }
 
 .star.filled {
-  color: var(--star-color, gold);
+  color: gold;
 }
 
 .rating-value {
   font-size: 0.9rem;
-  color: var(--text-color);
+  color: var(--text-color, #333);
 }
 
 .component-price {
@@ -501,7 +511,7 @@ h1 {
   font-weight: bold;
   margin-top: auto;
   margin-bottom: 1rem;
-  color: var(--primary-color);
+  color: var(--primary-color, #3498db);
 }
 
 .component-actions {
@@ -521,21 +531,21 @@ h1 {
 }
 
 .btn-add {
-  background-color: var(--primary-color);
+  background-color: var(--primary-color, #3498db);
   color: white;
 }
 
 .btn-add:hover {
-  background-color: var(--primary-dark-color, #2980b9);
+  background-color: #2980b9;
 }
 
 .btn-cart {
-  background-color: var(--secondary-color);
+  background-color: var(--secondary-color, #2ecc71);
   color: white;
 }
 
 .btn-cart:hover {
-  background-color: var(--secondary-dark-color, #27ae60);
+  background-color: #27ae60;
 }
 
 /* Стили для категорий */

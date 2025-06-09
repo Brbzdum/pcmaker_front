@@ -55,19 +55,27 @@
           <div v-if="activeTab === 'orders'" class="tab-content">
             <h2>Мои заказы</h2>
             
-            <div v-if="user.orders && user.orders.length > 0" class="orders-list">
+            <div v-if="orderStore.isLoading" class="loading-indicator">
+              Загрузка заказов...
+            </div>
+            
+            <div v-else-if="orderStore.error" class="error-message">
+              {{ orderStore.error }}
+            </div>
+            
+            <div v-else-if="orders.length > 0" class="orders-list">
               <div 
-                v-for="order in user.orders" 
+                v-for="order in orders" 
                 :key="order.id"
                 class="order-card"
               >
                 <div class="order-header">
                   <div class="order-info">
                     <div class="order-number">Заказ #{{ order.id }}</div>
-                    <div class="order-date">{{ order.date }}</div>
+                    <div class="order-date">{{ formatDate(order.createdAt) }}</div>
                   </div>
                   <div class="order-status" :class="getStatusClass(order.status)">
-                    {{ order.status }}
+                    {{ translateStatus(order.status) }}
                   </div>
                 </div>
                 
@@ -77,9 +85,9 @@
                     :key="index"
                     class="order-item"
                   >
-                    <div class="item-name">{{ item.name }}</div>
+                    <div class="item-name">{{ item.productName }}</div>
                     <div class="item-details">
-                      <span>{{ item.quantity }} × ${{ item.price.toFixed(2) }}</span>
+                      <span>{{ item.quantity }} × {{ item.productPrice.toFixed(2) }} ₽</span>
                     </div>
                   </div>
                 </div>
@@ -87,7 +95,7 @@
                 <div class="order-footer">
                   <div class="order-total">
                     <span>Итого:</span>
-                    <span>${{ order.total.toFixed(2) }}</span>
+                    <span>{{ order.total.toFixed(2) }} ₽</span>
                   </div>
                 </div>
               </div>
@@ -229,24 +237,65 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useConfiguratorStore } from '@/stores/configurator'
+import { useOrderStore } from '@/stores/order'
+import apiClient from '@/api/apiClient'
 import { components } from '@/api/mockData'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const configuratorStore = useConfiguratorStore()
+const orderStore = useOrderStore()
 
 const activeTab = ref('orders')
 const isLoading = ref(true)
 const error = ref('')
 const isUpdating = ref(false)
 
+// Типы для пользовательских данных
+interface OrderItem {
+  name: string;
+  quantity: number;
+  price: number;
+  productId: number;
+  productName?: string;
+  productPrice?: number;
+}
+
+interface Order {
+  id: number;
+  date: string;
+  status: string;
+  items: OrderItem[];
+  total: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface Configuration {
+  id: number;
+  name: string;
+  date: string;
+  components: number[];
+}
+
+interface UserProfile {
+  id: number;
+  username: string;
+  email: string;
+  savedConfigurations: Configuration[];
+}
+
 // Пользовательские данные
-const user = ref({
+const user = ref<UserProfile>({
   id: 0,
   username: '',
   email: '',
-  orders: [],
   savedConfigurations: []
+})
+
+// Получаем заказы из хранилища
+const orders = computed(() => {
+  return orderStore.orders
 })
 
 // Форма редактирования профиля
@@ -269,19 +318,26 @@ const passwordError = computed(() => {
 
 onMounted(async () => {
   if (authStore.getIsAuthenticated) {
+    isLoading.value = true
     await fetchUserProfile()
+    await orderStore.fetchOrders()
+    isLoading.value = false
   }
 })
 
 // Получение данных профиля
 const fetchUserProfile = async () => {
-  isLoading.value = true
   error.value = ''
   
   try {
     const userData = await authStore.fetchUserProfile()
     if (userData) {
-      user.value = userData
+      user.value = {
+        id: userData.id,
+        username: userData.username,
+        email: userData.email,
+        savedConfigurations: userData.savedConfigurations || []
+      }
       
       // Заполняем форму профиля
       profileForm.value.username = userData.username
@@ -289,9 +345,32 @@ const fetchUserProfile = async () => {
     }
   } catch (err: any) {
     error.value = err.message || 'Ошибка при загрузке данных профиля'
-  } finally {
-    isLoading.value = false
   }
+}
+
+// Форматирование даты
+const formatDate = (dateString: string) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+}
+
+// Перевод статуса заказа
+const translateStatus = (status: string) => {
+  const statusMap: Record<string, string> = {
+    'PENDING': 'Обрабатывается',
+    'PROCESSING': 'В обработке',
+    'SHIPPED': 'Отправлен',
+    'DELIVERED': 'Доставлен',
+    'CANCELLED': 'Отменен',
+    'COMPLETED': 'Выполнен'
+  };
+  
+  return statusMap[status] || status;
 }
 
 // Обновление профиля
@@ -300,20 +379,35 @@ const updateProfile = async () => {
   
   isUpdating.value = true
   
-  // В реальном приложении здесь был бы запрос к API
-  // Сейчас просто имитируем успешное обновление
-  setTimeout(() => {
+  try {
+    // Отправляем запрос на обновление профиля
+    const updateData = {
+      username: profileForm.value.username,
+      email: profileForm.value.email
+    }
+    
+    if (profileForm.value.newPassword) {
+      updateData.currentPassword = profileForm.value.currentPassword
+      updateData.newPassword = profileForm.value.newPassword
+    }
+    
+    await apiClient.put('/users/profile', updateData)
+    
+    // Обновляем локальные данные
     user.value.username = profileForm.value.username
     user.value.email = profileForm.value.email
     
+    // Очищаем поля пароля
     profileForm.value.currentPassword = ''
     profileForm.value.newPassword = ''
     profileForm.value.confirmPassword = ''
     
-    isUpdating.value = false
-    
     alert('Профиль успешно обновлен')
-  }, 800)
+  } catch (err: any) {
+    alert(err.response?.data?.message || 'Ошибка при обновлении профиля')
+  } finally {
+    isUpdating.value = false
+  }
 }
 
 // Выход из аккаунта
@@ -329,17 +423,20 @@ const getComponentName = (componentId: number) => {
 }
 
 // Загрузка конфигурации в конфигуратор
-const loadConfiguration = (config: any) => {
+const loadConfiguration = (config: Configuration) => {
   // Очищаем текущую конфигурацию
-  configuratorStore.resetConfiguration()
+  if (typeof configuratorStore.saveConfiguration === 'function') {
+    // Сначала очистим конфигурацию, создав пустую конфигурацию с временным именем
+    configuratorStore.saveConfiguration('temp_empty_config')
   
-  // Добавляем компоненты из сохраненной конфигурации
-  config.components.forEach((componentId: number) => {
-    const component = components.find(c => c.id === componentId)
-    if (component) {
-      configuratorStore.selectComponent(component.type, component)
-    }
-  })
+    // Добавляем компоненты из сохраненной конфигурации
+    config.components.forEach((componentId: number) => {
+      const component = components.find(c => c.id === componentId)
+      if (component) {
+        configuratorStore.selectComponent(component.type, component)
+      }
+    })
+  }
   
   // Переходим в конфигуратор
   router.push('/configurator')
@@ -349,10 +446,16 @@ const loadConfiguration = (config: any) => {
 const getStatusClass = (status: string) => {
   switch (status) {
     case 'Выполнен':
+    case 'COMPLETED':
+    case 'DELIVERED':
       return 'status-completed'
     case 'Обрабатывается':
+    case 'PROCESSING':
+    case 'PENDING':
+    case 'SHIPPED':
       return 'status-processing'
     case 'Отменен':
+    case 'CANCELLED':
       return 'status-cancelled'
     default:
       return ''
@@ -447,22 +550,6 @@ h1 {
 
 .tab-btn:hover:not(.active) {
   background-color: #f5f5f5;
-}
-
-.btn-logout {
-  width: 100%;
-  padding: 0.75rem;
-  background-color: #e74c3c;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.btn-logout:hover {
-  background-color: #c0392b;
 }
 
 .tab-content {
@@ -708,6 +795,36 @@ h1 {
 .btn-config:hover,
 .btn-login:hover {
   background-color: #2980b9;
+}
+
+.btn-logout {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.btn-logout:hover {
+  background-color: #c0392b;
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
 }
 
 @media (max-width: 768px) {

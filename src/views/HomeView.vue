@@ -231,10 +231,7 @@
 
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
-import { useTheme } from '@/composables/useTheme'
 import PcMakerLogo from '@/components/PcMakerLogo.vue'
-
-const { currentTheme } = useTheme()
 </script>
 
 <style scoped>
@@ -244,7 +241,7 @@ const { currentTheme } = useTheme()
   display: flex;
   flex-direction: column;
   align-items: center;
-  background-color: var(--background-color);
+  background-color: var(--background-color, #f8f9fa);
 }
 
 /* Герой секция */
@@ -499,30 +496,6 @@ section {
   position: relative;
 }
 
-:global(.theme-dark) .configurator-promo {
-  background-color: #0A1232 !important; /* Темно-синий фон как на скрине */
-  border-top: 1px solid rgba(76, 194, 255, 0.2);
-  border-bottom: 1px solid rgba(76, 194, 255, 0.2);
-}
-
-:global(.theme-dark) .configurator-promo h2 {
-  color: #ffffff !important; /* Белый цвет для заголовка */
-  text-shadow: 0 0 10px rgba(0, 170, 255, 0.5); /* Неоновое свечение */
-}
-
-:global(.theme-dark) .promo-text p {
-  color: #b8c7ff !important; /* Светло-голубой для параграфа */
-}
-
-:global(.theme-dark) .promo-features li {
-  color: #e0e6ff !important; /* Светлый цвет для пунктов списка */
-}
-
-:global(.theme-dark) .promo-features li::before {
-  color: #4cc2ff !important; /* Яркая галочка */
-  text-shadow: 0 0 5px rgba(76, 194, 255, 0.8); /* Свечение для галочки */
-}
-
 .promo-content {
   display: flex;
   align-items: center;
@@ -644,10 +617,6 @@ section {
   margin-bottom: 1.5rem;
 }
 
-:global(.theme-dark) .product-price {
-  color: #4cc2ff;
-}
-
 .product-actions {
   display: flex;
   gap: 0.5rem;
@@ -666,24 +635,14 @@ section {
 }
 
 .btn-details {
-  background-color: var(--light-color);
-  color: var(--text-color);
+  background-color: var(--light-color, #f1f1f1);
+  color: var(--text-color, #333);
   text-decoration: none;
   border: 1px solid transparent;
 }
 
 .btn-details:hover {
   background-color: #e1e1e1;
-}
-
-:global(.theme-dark) .btn-details {
-  background-color: #232434 !important;
-  color: #fff !important;
-  border: 1px solid #4cc2ff !important;
-}
-
-:global(.theme-dark) .btn-details:hover {
-  background-color: #2a2d4a !important;
 }
 
 .btn-cart {
@@ -714,18 +673,12 @@ section {
 .advantage-card {
   padding: 3rem 2rem;
   text-align: center;
-  background-color: var(--surface-color);
+  background-color: var(--surface-color, #fff);
   border-radius: 8px;
-  box-shadow: 0 5px 15px var(--shadow-color);
+  box-shadow: 0 5px 15px var(--shadow-color, rgba(0,0,0,0.1));
   transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
   height: 100%;
   border: 1px solid transparent;
-}
-
-:global(.theme-dark) .advantage-card {
-  background-color: #181922 !important;
-  color: #e0e6ff !important;
-  border: 1px solid #232434 !important;
 }
 
 .advantage-card:hover {
@@ -738,19 +691,15 @@ section {
   filter: drop-shadow(0 0 5px rgba(0, 170, 255, 0.5));
 }
 
-:global(.theme-dark) .advantage-icon {
-  filter: drop-shadow(0 0 8px rgba(0, 170, 255, 0.7));
-}
-
 .advantage-card h3 {
   margin-top: 0;
   margin-bottom: 1.2rem;
-  color: var(--text-color);
+  color: var(--text-color, #333);
   font-size: 1.5rem;
 }
 
 .advantage-card p {
-  color: var(--text-secondary-color);
+  color: var(--text-secondary-color, #666);
   margin: 0;
   font-size: 1.05rem;
   line-height: 1.6;
@@ -820,62 +769,5 @@ section {
   .promo-features li {
     font-size: 1.1rem;
   }
-}
-
-/* Добавляем стили для элементов формы в темной теме */
-:global(.theme-dark) input,
-:global(.theme-dark) select,
-:global(.theme-dark) textarea {
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-}
-
-:global(.theme-dark) input:focus,
-:global(.theme-dark) select:focus,
-:global(.theme-dark) textarea:focus {
-  border-color: #4cc2ff;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(76, 194, 255, 0.3);
-}
-
-/* Стили для табов и форм логина/регистрации */
-:global(.theme-dark) .tab-buttons {
-  background-color: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-:global(.theme-dark) .tab-button {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-:global(.theme-dark) .tab-button.active {
-  background-color: rgba(0, 170, 255, 0.2);
-  color: white;
-  border-bottom: 2px solid #4cc2ff;
-}
-
-:global(.theme-dark) .form-container {
-  background-color: rgba(30, 30, 40, 0.7);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-}
-
-:global(.theme-dark) .form-title {
-  color: white;
-}
-
-:global(.theme-dark) .form-label {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-:global(.theme-dark) .login-button,
-:global(.theme-dark) .register-button {
-  background-color: #00aaff;
-  color: white;
-}
-
-:global(.theme-dark) .login-button:hover,
-:global(.theme-dark) .register-button:hover {
-  background-color: #0088cc;
 }
 </style> 

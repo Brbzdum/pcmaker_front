@@ -60,7 +60,7 @@ export const useCatalogStore = defineStore('catalog', {
       this.error = null
 
       try {
-        const response = await apiClient.get('/products/pc-components')
+        const response = await apiClient.get('/products')
         this.components = response.data
         this.filteredComponents = response.data
         

@@ -16,6 +16,47 @@ interface AuthState {
   error: string | null
 }
 
+// Функция для локализации ошибок от сервера
+const localizeError = (error: string): string => {
+  // Карта локализации распространенных ошибок
+  const errorMap: Record<string, string> = {
+    'Invalid credentials': 'Неверное имя пользователя или пароль',
+    'Login failed': 'Ошибка входа',
+    'User already exists': 'Пользователь с таким именем уже существует',
+    'Email already exists': 'Пользователь с таким email уже существует',
+    'Registration failed': 'Ошибка при регистрации',
+    'Invalid verification code': 'Недействительный код подтверждения',
+    'Email verification required': 'Требуется подтверждение email',
+    'Invalid username or password': 'Неверное имя пользователя или пароль',
+    'Invalid token': 'Недействительный токен аутентификации',
+    'Password should be at least 6 characters': 'Пароль должен быть не менее 6 символов',
+    'Token not found in response': 'Ошибка аутентификации: не получен токен доступа',
+    'Network error': 'Ошибка сети',
+    'Пользователь с таким email уже существует': 'Пользователь с таким email уже существует',
+    'Пользователь с таким username уже существует': 'Пользователь с таким именем уже существует',
+    'User not found': 'Пользователь не найден',
+    'Bad credentials': 'Неверное имя пользователя или пароль'
+  }
+
+  // Проверяем наличие сообщения в словаре
+  if (error in errorMap) {
+    return errorMap[error]
+  }
+
+  // Для ошибок о длине пароля
+  if (error.includes('password') && error.includes('characters')) {
+    return 'Пароль должен быть не менее 6 символов'
+  }
+
+  // Для ошибок валидации email
+  if (error.includes('email') && error.includes('format')) {
+    return 'Некорректный формат email'
+  }
+
+  // Если не нашли соответствия, возвращаем оригинальное сообщение
+  return error
+}
+
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => {
     // Проверяем валидность токена
@@ -82,8 +123,13 @@ export const useAuthStore = defineStore('auth', {
         if (error.response) {
           console.error('Response data:', error.response.data);
           console.error('Status code:', error.response.status);
+          
+          // Локализуем сообщение об ошибке
+          const errorMessage = error.response?.data?.message || 'Ошибка входа';
+          this.error = localizeError(errorMessage);
+        } else {
+          this.error = localizeError(error.message || 'Ошибка сети');
         }
-        this.error = error.response?.data?.message || 'Login failed'
         return false
       } finally {
         this.isLoading = false
@@ -106,23 +152,39 @@ export const useAuthStore = defineStore('auth', {
         
         console.log('Registration response:', response.data);
         
-        // В случае успешной регистрации показываем сообщение о необходимости подтверждения почты
-        // Не выполняем автоматический вход, т.к. аккаунт не активирован
+        // Локализуем сообщение об успешной регистрации
+        const successMessage = response.data?.message || 'Регистрация успешна! Пожалуйста, проверьте вашу почту для подтверждения аккаунта.';
+        
         return {
           success: true,
           needEmailVerification: true,
-          message: response.data.message || 'Registration successful! Please check your email to verify your account.'
+          message: successMessage
         }
       } catch (error: any) {
         console.error('Registration error:', error);
+        let errorMessage = 'Ошибка при регистрации';
+        
         if (error.response) {
           console.error('Response data:', error.response.data);
           console.error('Status code:', error.response.status);
-          this.error = error.response?.data?.message || 
-                     (error.response.data && typeof error.response.data === 'string' ? error.response.data : 'Registration failed');
-        } else {
-          this.error = error.message || 'Registration failed: Network error';
+          
+          // Получаем сообщение об ошибке из ответа сервера
+          if (error.response.data) {
+            if (typeof error.response.data === 'string') {
+              errorMessage = error.response.data;
+            } else if (error.response.data.message) {
+              errorMessage = error.response.data.message;
+            } else if (error.response.data.error) {
+              errorMessage = error.response.data.error;
+            }
+          }
+        } else if (error.message) {
+          errorMessage = error.message;
         }
+        
+        // Локализуем сообщение об ошибке
+        this.error = localizeError(errorMessage);
+        
         return {
           success: false,
           message: this.error
@@ -146,7 +208,10 @@ export const useAuthStore = defineStore('auth', {
           // Если пользователь не авторизован, выполняем выход
           this.logout();
         }
-        this.error = error.response?.data?.message || 'Failed to fetch user profile'
+        
+        const errorMessage = error.response?.data?.message || 'Ошибка при получении профиля';
+        this.error = localizeError(errorMessage);
+        
         return null
       } finally {
         this.isLoading = false

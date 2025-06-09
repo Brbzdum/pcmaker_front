@@ -51,13 +51,10 @@ onMounted(async () => {
 
   try {
     // Отправляем запрос на подтверждение email
-    const response = await apiClient.get(`/auth/verify?code=${code}`)
+    await apiClient.get(`/auth/verify?code=${code}`)
     
-    if (response.status === 200) {
-      verificationSuccess.value = true
-    } else {
-      verificationError.value = true
-    }
+    // Axios всегда возвращает статус 2xx в блоке try, иначе переходит в catch
+    verificationSuccess.value = true
   } catch (error: any) {
     verificationError.value = true
     if (error.response?.data?.message) {
@@ -95,11 +92,6 @@ const goToLogin = () => {
   text-align: center;
 }
 
-:global(.theme-dark) .verify-container {
-  background-color: #181922;
-  color: #fff;
-}
-
 h2 {
   margin-bottom: 1rem;
 }
@@ -122,11 +114,6 @@ h2 {
   margin-bottom: 1rem;
 }
 
-:global(.theme-dark) .spinner {
-  border-color: rgba(255, 255, 255, 0.1);
-  border-left-color: #4cc2ff;
-}
-
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -139,24 +126,12 @@ h2 {
   margin-bottom: 1.5rem;
 }
 
-:global(.theme-dark) .success-message {
-  background-color: rgba(40, 167, 69, 0.3);
-  color: #75b798;
-  border: 1px solid rgba(40, 167, 69, 0.5);
-}
-
 .error-message {
   background-color: #f8d7da;
   color: #721c24;
   padding: 1.5rem;
   border-radius: 4px;
   margin-bottom: 1.5rem;
-}
-
-:global(.theme-dark) .error-message {
-  background-color: rgba(220, 53, 69, 0.3);
-  color: #ff6b6b;
-  border: 1px solid rgba(220, 53, 69, 0.5);
 }
 
 .buttons {
@@ -177,13 +152,5 @@ h2 {
 
 .btn-primary:hover {
   background-color: #2980b9;
-}
-
-:global(.theme-dark) .btn-primary {
-  background-color: #4cc2ff;
-}
-
-:global(.theme-dark) .btn-primary:hover {
-  background-color: #0095e8;
 }
 </style> 

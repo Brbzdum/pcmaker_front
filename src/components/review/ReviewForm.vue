@@ -161,7 +161,7 @@ const submitReview = async () => {
 
 <style scoped>
 .review-form {
-  background-color: var(--surface-color);
+  background-color: var(--surface-color, #fff);
   border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
@@ -174,8 +174,8 @@ const submitReview = async () => {
 }
 
 .error-message {
-  background-color: var(--error-light-color);
-  color: var(--error-color);
+  background-color: var(--error-light-color, #ffebee);
+  color: var(--error-color, #d32f2f);
   padding: 1rem;
   border-radius: 4px;
   margin-bottom: 1.5rem;
@@ -203,30 +203,30 @@ const submitReview = async () => {
 .rating-star {
   font-size: 2rem;
   cursor: pointer;
-  color: var(--text-light-color);
+  color: var(--text-light-color, #aaa);
   margin-right: 0.25rem;
   transition: color 0.2s ease;
 }
 
 .rating-star.filled {
-  color: var(--star-color, gold);
+  color: gold;
 }
 
 .rating-star.hovered {
-  color: var(--star-hover-color, #ffd700);
+  color: #ffd700;
 }
 
 .rating-text {
   display: block;
   font-size: 0.9rem;
   margin-top: 0.25rem;
-  color: var(--text-color);
+  color: var(--text-color, #333);
 }
 
 textarea {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-color, #eee);
   border-radius: 4px;
   font-family: inherit;
   font-size: 1rem;
@@ -235,14 +235,14 @@ textarea {
 
 textarea:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.2);
+  border-color: var(--primary-color, #3498db);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
 
 .char-counter {
   text-align: right;
   font-size: 0.8rem;
-  color: var(--text-light-color);
+  color: var(--text-light-color, #aaa);
   margin-top: 0.25rem;
 }
 
@@ -262,26 +262,26 @@ textarea:focus {
 }
 
 .btn-primary {
-  background-color: var(--primary-color);
+  background-color: var(--primary-color, #3498db);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--primary-dark-color);
+  background-color: var(--primary-dark-color, #2980b9);
 }
 
 .btn-primary:disabled {
-  background-color: var(--disabled-color);
+  background-color: var(--disabled-color, #cccccc);
   cursor: not-allowed;
 }
 
 .btn-secondary {
-  background-color: var(--surface-alt-color, #f0f0f0);
-  color: var(--text-color);
+  background-color: #f0f0f0;
+  color: var(--text-color, #333);
 }
 
 .btn-secondary:hover {
-  background-color: var(--surface-alt-hover-color, #e0e0e0);
+  background-color: #e0e0e0;
 }
 
 @media (max-width: 768px) {

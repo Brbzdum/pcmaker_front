@@ -56,21 +56,21 @@
             </div>
             
             <div 
-              v-else-if="configuratorStore.getCompatibilityResult"
+              v-else-if="compatibilityResult"
               class="compatibility-result"
               :class="{ 
-                'compatible': configuratorStore.getCompatibilityResult.compatible,
-                'incompatible': !configuratorStore.getCompatibilityResult.compatible
+                'compatible': compatibilityResult.compatible,
+                'incompatible': !compatibilityResult.compatible
               }"
             >
-              <div v-if="configuratorStore.getCompatibilityResult.compatible">
+              <div v-if="compatibilityResult.compatible">
                 <h3>✓ Compatible</h3>
                 <p>All components are compatible with each other.</p>
               </div>
               <div v-else>
                 <h3>✗ Incompatible</h3>
                 <ul class="issues-list">
-                  <li v-for="(issue, index) in configuratorStore.getCompatibilityResult.issues" :key="index">
+                  <li v-for="(issue, index) in compatibilityResult.issues" :key="index">
                     {{ issue }}
                   </li>
                 </ul>
@@ -81,7 +81,7 @@
               <button 
                 @click="checkCompatibility"
                 class="btn-check"
-                :disabled="!configuratorStore.isConfigurationComplete"
+                :disabled="!isConfigurationComplete"
               >
                 Check Compatibility
               </button>
@@ -97,7 +97,7 @@
               <button 
                 @click="showSaveModal = true"
                 class="btn-save"
-                :disabled="!configuratorStore.isConfigurationComplete"
+                :disabled="!isConfigurationComplete"
               >
                 Save Configuration
               </button>
@@ -146,18 +146,39 @@ const cartStore = useCartStore()
 const showSaveModal = ref(false)
 const configName = ref('')
 
+// Создаем локальные вычисляемые свойства для доступа к свойствам конфигуратора
+const compatibilityResult = computed(() => configuratorStore.$state.compatibility)
+const isConfigurationComplete = computed(() => {
+  // Проверяем, что все обязательные компоненты выбраны
+  const components = configuratorStore.getSelectedComponents
+  const requiredTypes = ['CPU', 'Motherboard', 'RAM', 'Storage', 'PSU', 'Case']
+  return requiredTypes.every(type => components[type] !== null)
+})
+
 const canAddToCart = computed(() => {
-  return configuratorStore.isConfigurationComplete && 
-         configuratorStore.getCompatibilityResult && 
-         configuratorStore.getCompatibilityResult.compatible
+  return isConfigurationComplete.value && 
+         compatibilityResult.value && 
+         compatibilityResult.value.compatible
 })
 
 const checkCompatibility = async () => {
-  await configuratorStore.checkCompatibility()
+  try {
+    // Предполагаем, что в store есть метод для проверки совместимости
+    await configuratorStore.checkCompatibility()
+  } catch (error) {
+    console.error('Error checking compatibility:', error)
+  }
 }
 
 const removeComponent = (type: string) => {
-  configuratorStore.removeComponent(type)
+  // Предполагаем, что в store есть метод для удаления компонента
+  // Если метод не существует, создаем альтернативный подход
+  if (typeof configuratorStore.removeComponent === 'function') {
+    configuratorStore.removeComponent(type)
+  } else {
+    // Альтернативный подход: устанавливаем компонент в null
+    configuratorStore.selectComponent(type, null)
+  }
 }
 
 const addToCart = async () => {

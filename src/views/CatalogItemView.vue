@@ -2,38 +2,39 @@
   <div class="catalog-item">
     <div class="container" v-if="component">
       <div class="item-content">
-        <div class="item-image">
-          <img :src="component.imageUrl || 'https://via.placeholder.com/400x300?text=Component'" :alt="component.name">
-        </div>
-        
-        <div class="item-details">
-          <h1>{{ component.name }}</h1>
-          <div class="item-meta">
-            <span class="item-type">{{ component.type }}</span>
-            <span class="item-manufacturer">{{ component.manufacturer }}</span>
+        <div class="component-details">
+          <div class="component-image">
+            <img :src="component.imageUrl || 'https://via.placeholder.com/400x300?text=Component'" :alt="component.name || component.title">
           </div>
-          
-          <div class="item-rating" v-if="productRating > 0">
-            <div class="stars">
-              <span v-for="i in 5" :key="i" class="star" :class="{ 'filled': i <= Math.round(productRating) }">★</span>
+          <div class="component-info">
+            <h1>{{ component.name || component.title }}</h1>
+            <div class="component-meta">
+              <div class="component-type" v-if="component.type">{{ component.type }}</div>
+              <div class="component-manufacturer">{{ component.manufacturer }}</div>
             </div>
-            <span class="rating-text">{{ productRating.toFixed(1) }} из 5</span>
-          </div>
-          
-          <div class="item-price">{{ component.price?.toFixed(2) }} ₽</div>
-          
-          <div class="item-description">
-            <h3>Описание</h3>
-            <p>{{ component.description }}</p>
-          </div>
-          
-          <div class="item-actions">
-            <button class="btn-add" @click="addToConfigurator(component)">
-              Добавить в конфигуратор
-            </button>
-            <button class="btn-cart" @click="addToCart(component)">
-              Добавить в корзину
-            </button>
+            
+            <div class="item-rating" v-if="productRating > 0">
+              <div class="stars">
+                <span v-for="i in 5" :key="i" class="star" :class="{ 'filled': i <= Math.round(productRating) }">★</span>
+              </div>
+              <span class="rating-text">{{ productRating.toFixed(1) }} из 5</span>
+            </div>
+            
+            <div class="item-price">{{ component.price?.toFixed(2) }} ₽</div>
+            
+            <div class="item-description">
+              <h3>Описание</h3>
+              <p>{{ component.description }}</p>
+            </div>
+            
+            <div class="item-actions">
+              <button class="btn-add" @click="addToConfigurator(component)">
+                Добавить в конфигуратор
+              </button>
+              <button class="btn-cart" @click="addToCart(component)">
+                Добавить в корзину
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -111,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCatalogStore } from '@/stores/catalog'
 import { useConfiguratorStore } from '@/stores/configurator'
@@ -151,8 +152,7 @@ onMounted(async () => {
       component.value = product
       
       // Загружаем рейтинг товара
-      const rating = await reviewStore.fetchProductRating(id)
-      productRating.value = rating
+      productRating.value = await reviewStore.fetchProductRating(id)
     }
   } catch (error) {
     console.error('Error fetching component:', error)
@@ -173,8 +173,18 @@ const addToConfigurator = (item: any) => {
   router.push('/configurator')
 }
 
-const addToCart = (item: any) => {
-  cartStore.addToCart(item)
+const addToCart = async (component: any) => {
+  try {
+    const result = await cartStore.addToCart(component.id, 1)
+    if (result) {
+      alert('Товар добавлен в корзину')
+    } else {
+      alert('Ошибка при добавлении товара в корзину: ' + cartStore.getError)
+    }
+  } catch (error) {
+    console.error('Error adding to cart:', error)
+    alert('Ошибка при добавлении товара в корзину')
+  }
 }
 
 // Функции для работы с отзывами
@@ -192,8 +202,7 @@ const deleteReview = async (reviewId: number) => {
   if (confirm('Вы уверены, что хотите удалить этот отзыв?')) {
     await reviewStore.deleteReview(reviewId)
     // Обновляем рейтинг товара после удаления отзыва
-    const rating = await reviewStore.fetchProductRating(Number(route.params.id))
-    productRating.value = rating
+    productRating.value = await reviewStore.fetchProductRating(Number(route.params.id))
   }
 }
 
@@ -221,8 +230,7 @@ const closeReportForm = () => {
 const onReviewSuccess = async () => {
   closeReviewForm()
   // Обновляем рейтинг товара после добавления/обновления отзыва
-  const rating = await reviewStore.fetchProductRating(Number(route.params.id))
-  productRating.value = rating
+  productRating.value = await reviewStore.fetchProductRating(Number(route.params.id))
 }
 
 const submitReport = async () => {
@@ -245,8 +253,8 @@ const submitReport = async () => {
 .catalog-item {
   width: 100%;
   padding: 2rem;
-  background-color: var(--background-color);
-  color: var(--text-color);
+  background-color: var(--background-color, #f8f9fa);
+  color: var(--text-color, #333);
 }
 
 .container {
@@ -260,34 +268,39 @@ const submitReport = async () => {
   margin-bottom: 3rem;
 }
 
-.item-image {
+.component-details {
+  display: flex;
+  gap: 2rem;
+}
+
+.component-image {
   flex: 0 0 40%;
 }
 
-.item-image img {
+.component-image img {
   width: 100%;
   border-radius: 8px;
-  box-shadow: 0 4px 12px var(--shadow-color);
+  box-shadow: 0 4px 12px var(--shadow-color, rgba(0,0,0,0.1));
 }
 
-.item-details {
+.component-info {
   flex: 1;
 }
 
 h1 {
   margin-top: 0;
   margin-bottom: 1rem;
-  color: var(--text-color);
+  color: var(--text-color, #333);
 }
 
-.item-meta {
+.component-meta {
   display: flex;
   gap: 1rem;
   margin-bottom: 1rem;
 }
 
-.item-type, .item-manufacturer {
-  background-color: var(--primary-color);
+.component-type, .component-manufacturer {
+  background-color: var(--primary-color, #3498db);
   color: white;
   padding: 0.3rem 0.8rem;
   border-radius: 4px;
@@ -307,23 +320,23 @@ h1 {
 
 .star {
   font-size: 1.2rem;
-  color: var(--text-light-color);
+  color: var(--text-light-color, #aaa);
   margin-right: 2px;
 }
 
 .star.filled {
-  color: var(--star-color, gold);
+  color: gold;
 }
 
 .rating-text {
   font-size: 0.9rem;
-  color: var(--text-color);
+  color: var(--text-color, #333);
 }
 
 .item-price {
   font-size: 2rem;
   font-weight: bold;
-  color: var(--primary-color);
+  color: var(--primary-color, #3498db);
   margin-bottom: 1.5rem;
 }
 
@@ -337,7 +350,7 @@ h1 {
 }
 
 .item-description p {
-  color: var(--text-secondary-color);
+  color: var(--text-secondary-color, #666);
   line-height: 1.6;
 }
 
@@ -356,28 +369,28 @@ h1 {
 }
 
 .btn-add {
-  background-color: var(--primary-color);
+  background-color: var(--primary-color, #3498db);
   color: white;
 }
 
 .btn-add:hover {
-  background-color: var(--primary-dark-color, #2980b9);
+  background-color: #2980b9;
 }
 
 .btn-cart {
-  background-color: var(--secondary-color);
+  background-color: var(--secondary-color, #2ecc71);
   color: white;
 }
 
 .btn-cart:hover {
-  background-color: var(--secondary-dark-color, #27ae60);
+  background-color: #27ae60;
 }
 
 .item-specs {
-  background-color: var(--surface-color);
+  background-color: var(--surface-color, #fff);
   border-radius: 8px;
   padding: 2rem;
-  box-shadow: 0 2px 10px var(--shadow-color);
+  box-shadow: 0 2px 10px var(--shadow-color, rgba(0,0,0,0.1));
   margin-bottom: 2rem;
 }
 
@@ -396,17 +409,17 @@ h1 {
   display: grid;
   grid-template-columns: 200px 1fr;
   gap: 1rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color, #eee);
   padding-bottom: 0.5rem;
 }
 
 .spec-name {
   font-weight: bold;
-  color: var(--text-color);
+  color: var(--text-color, #333);
 }
 
 .spec-value {
-  color: var(--text-secondary-color);
+  color: var(--text-secondary-color, #666);
 }
 
 .reviews-section {
@@ -424,12 +437,12 @@ h1 {
 
 .error p {
   margin-bottom: 2rem;
-  color: var(--text-secondary-color);
+  color: var(--text-secondary-color, #666);
 }
 
 .btn-back {
   display: inline-block;
-  background-color: var(--primary-color);
+  background-color: var(--primary-color, #3498db);
   color: white;
   padding: 0.8rem 1.5rem;
   border-radius: 4px;
@@ -439,7 +452,7 @@ h1 {
 }
 
 .btn-back:hover {
-  background-color: var(--primary-dark-color, #2980b9);
+  background-color: #2980b9;
 }
 
 /* Стили для модальных окон */
@@ -463,7 +476,7 @@ h1 {
   max-height: 90vh;
   overflow-y: auto;
   z-index: 101;
-  background-color: var(--background-color);
+  background-color: var(--background-color, #f8f9fa);
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
@@ -476,7 +489,7 @@ h1 {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--text-color);
+  color: var(--text-color, #333);
 }
 
 .report-form {
@@ -489,13 +502,13 @@ h1 {
 
 .report-form p {
   margin-bottom: 1rem;
-  color: var(--text-secondary-color);
+  color: var(--text-secondary-color, #666);
 }
 
 textarea {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-color, #eee);
   border-radius: 4px;
   font-family: inherit;
   font-size: 1rem;
@@ -518,18 +531,18 @@ textarea {
 }
 
 .btn-primary {
-  background-color: var(--primary-color);
+  background-color: var(--primary-color, #3498db);
   color: white;
 }
 
 .btn-primary:disabled {
-  background-color: var(--disabled-color);
+  background-color: #cccccc;
   cursor: not-allowed;
 }
 
 .btn-secondary {
-  background-color: var(--surface-alt-color, #f0f0f0);
-  color: var(--text-color);
+  background-color: #f0f0f0;
+  color: var(--text-color, #333);
 }
 
 @media (max-width: 768px) {
@@ -537,7 +550,11 @@ textarea {
     flex-direction: column;
   }
   
-  .item-image {
+  .component-details {
+    flex-direction: column;
+  }
+  
+  .component-image {
     flex: none;
     margin-bottom: 1.5rem;
   }

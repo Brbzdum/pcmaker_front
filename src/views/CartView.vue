@@ -1,32 +1,32 @@
 <template>
   <div class="cart">
-    <h1>Shopping Cart</h1>
+    <h1>Корзина</h1>
     
     <div v-if="authStore.getIsAuthenticated">
       <div v-if="cartStore.getIsLoading" class="loading">
-        Loading cart...
+        Загрузка корзины...
       </div>
       
       <div v-else-if="cartStore.getError" class="error">
         {{ cartStore.getError }}
       </div>
       
-      <div v-else-if="cartStore.getCartItems.length === 0" class="empty-cart">
-        <p>Your cart is empty.</p>
-        <RouterLink to="/catalog" class="btn-shop">Shop for Components</RouterLink>
-        <RouterLink to="/configurator" class="btn-config">Build a PC</RouterLink>
+      <div v-else-if="cartStore.getItems.length === 0" class="empty-cart">
+        <p>Ваша корзина пуста.</p>
+        <RouterLink to="/catalog" class="btn-shop">Перейти в каталог</RouterLink>
+        <RouterLink to="/configurator" class="btn-config">Собрать ПК</RouterLink>
       </div>
       
       <div v-else class="cart-content">
         <div class="cart-items">
           <div 
-            v-for="item in cartStore.getCartItems" 
-            :key="item.id"
+            v-for="item in cartStore.getItems" 
+            :key="item.productId"
             class="cart-item"
           >
             <div class="item-details">
-              <h3>{{ item.name }}</h3>
-              <div class="item-type">{{ item.type }}</div>
+              <h3>{{ item.productName }}</h3>
+              <div class="item-price-single">{{ item.productPrice.toFixed(2) }} ₽ x {{ item.quantity }}</div>
             </div>
             
             <div class="item-quantity">
@@ -41,13 +41,18 @@
               <button 
                 @click="increaseQuantity(item)"
                 class="btn-quantity"
+                :disabled="isLoading || item.outOfStock"
+                :class="{'btn-disabled': item.outOfStock}"
               >
                 +
+                <span v-if="item.outOfStock" class="stock-tooltip">
+                  Товар закончился на складе
+                </span>
               </button>
             </div>
             
             <div class="item-price">
-              ${{ (item.price * item.quantity).toFixed(2) }}
+              {{ item.totalPrice.toFixed(2) }} ₽
             </div>
             
             <button @click="removeItem(item)" class="btn-remove">
@@ -58,24 +63,24 @@
         
         <div class="cart-summary">
           <div class="summary-card">
-            <h2>Order Summary</h2>
+            <h2>Сводка заказа</h2>
             
             <div class="summary-row">
-              <span>Items ({{ cartStore.getCartItemCount }}):</span>
-              <span>${{ cartStore.getCartTotal.toFixed(2) }}</span>
+              <span>Товары ({{ cartStore.getItemCount }}):</span>
+              <span>{{ cartStore.getTotal.toFixed(2) }} ₽</span>
             </div>
             
             <div class="summary-row total">
-              <span>Total:</span>
-              <span>${{ cartStore.getCartTotal.toFixed(2) }}</span>
+              <span>Итого:</span>
+              <span>{{ cartStore.getTotal.toFixed(2) }} ₽</span>
             </div>
             
             <RouterLink to="/checkout" class="btn-checkout">
-              Proceed to Checkout
+              Оформить заказ
             </RouterLink>
             
             <button @click="clearCart" class="btn-clear">
-              Clear Cart
+              Очистить корзину
             </button>
           </div>
         </div>
@@ -83,43 +88,83 @@
     </div>
     
     <div v-else class="login-required">
-      <p>Please log in to view your cart.</p>
-      <RouterLink to="/login" class="btn-login">Log In</RouterLink>
+      <p>Пожалуйста, войдите в аккаунт для просмотра корзины.</p>
+      <RouterLink to="/login" class="btn-login">Войти</RouterLink>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useCartStore } from '@/stores/cart'
 import { useAuthStore } from '@/stores/auth'
 
 const cartStore = useCartStore()
 const authStore = useAuthStore()
+const isLoading = ref(false)
 
 onMounted(async () => {
   if (authStore.getIsAuthenticated) {
     await cartStore.fetchCart()
+    
+    // Проверяем товары на наличие
+    checkItemsStock()
   }
 })
 
+// Проверка наличия товаров
+const checkItemsStock = () => {
+  const items = cartStore.getItems
+  for (const item of items) {
+    // Здесь мы предполагаем, что если товар уже в корзине в максимальном количестве,
+    // то больше его добавить нельзя
+    if (item.stockError) {
+      item.outOfStock = true
+    } else {
+      item.outOfStock = false
+    }
+  }
+}
+
 const increaseQuantity = async (item: any) => {
-  await cartStore.updateCartItem(item.id, item.quantity + 1)
+  if (item.outOfStock) return
+  
+  isLoading.value = true
+  const result = await cartStore.updateCartItem(item.productId, item.quantity + 1)
+  
+  if (!result) {
+    // Если не удалось обновить количество, значит товара больше нет на складе
+    item.outOfStock = true
+  }
+  
+  isLoading.value = false
 }
 
 const decreaseQuantity = async (item: any) => {
   if (item.quantity > 1) {
-    await cartStore.updateCartItem(item.id, item.quantity - 1)
+    isLoading.value = true
+    await cartStore.updateCartItem(item.productId, item.quantity - 1)
+    
+    // После уменьшения количества, товар снова может быть доступен для добавления
+    if (item.outOfStock) {
+      item.outOfStock = false
+    }
+    
+    isLoading.value = false
   }
 }
 
 const removeItem = async (item: any) => {
-  await cartStore.removeFromCart(item.id)
+  isLoading.value = true
+  await cartStore.removeFromCart(item.productId)
+  isLoading.value = false
 }
 
 const clearCart = async () => {
-  if (confirm('Are you sure you want to clear your cart?')) {
+  if (confirm('Вы уверены, что хотите очистить корзину?')) {
+    isLoading.value = true
     await cartStore.clearCart()
+    isLoading.value = false
   }
 }
 </script>
@@ -202,7 +247,7 @@ h1 {
   margin: 0 0 0.5rem 0;
 }
 
-.item-type {
+.item-price-single {
   color: #666;
   font-size: 0.9rem;
 }
@@ -211,6 +256,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  position: relative;
 }
 
 .btn-quantity {
@@ -225,6 +271,7 @@ h1 {
   align-items: center;
   cursor: pointer;
   transition: background-color 0.3s;
+  position: relative;
 }
 
 .btn-quantity:hover:not(:disabled) {
@@ -234,6 +281,39 @@ h1 {
 .btn-quantity:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn-disabled {
+  border-color: #e74c3c;
+}
+
+.stock-tooltip {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(231, 76, 60, 0.9);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.stock-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid rgba(231, 76, 60, 0.9);
 }
 
 .item-price {

@@ -3,7 +3,7 @@
     <h1>Оформление заказа</h1>
     
     <div v-if="authStore.getIsAuthenticated">
-      <div v-if="cartStore.getCartItems.length === 0" class="empty-cart">
+      <div v-if="cartItems.length === 0" class="empty-cart">
         <p>Ваша корзина пуста. Добавьте товары перед оформлением заказа.</p>
         <RouterLink to="/catalog" class="btn-shop">К каталогу</RouterLink>
         <RouterLink to="/configurator" class="btn-config">К конфигуратору</RouterLink>
@@ -105,21 +105,21 @@
             
             <div class="cart-items">
               <div 
-                v-for="item in cartStore.getCartItems" 
+                v-for="item in cartItems" 
                 :key="item.id"
                 class="cart-item"
               >
-                <div class="item-name">{{ item.name }}</div>
+                <div class="item-name">{{ item.productName }}</div>
                 <div class="item-details">
-                  <span>{{ item.quantity }} × ${{ item.price.toFixed(2) }}</span>
-                  <span>${{ (item.price * item.quantity).toFixed(2) }}</span>
+                  <span>{{ item.quantity }} × {{ item.productPrice.toFixed(2) }} ₽</span>
+                  <span>{{ item.totalPrice.toFixed(2) }} ₽</span>
                 </div>
               </div>
             </div>
             
             <div class="summary-row subtotal">
               <span>Товары:</span>
-              <span>${{ cartStore.getCartTotal.toFixed(2) }}</span>
+              <span>{{ cartTotal.toFixed(2) }} ₽</span>
             </div>
             
             <div class="summary-row delivery">
@@ -129,7 +129,7 @@
             
             <div class="summary-row total">
               <span>Итого:</span>
-              <span>${{ cartStore.getCartTotal.toFixed(2) }}</span>
+              <span>{{ cartTotal.toFixed(2) }} ₽</span>
             </div>
             
             <RouterLink to="/cart" class="btn-back">
@@ -165,15 +165,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed } from 'vue'
 import { useCartStore } from '@/stores/cart'
 import { useAuthStore } from '@/stores/auth'
-import mockApi from '@/api/mockApi'
+import { useOrderStore } from '@/stores/order'
+import { useRouter } from 'vue-router'
 
-const router = useRouter()
 const cartStore = useCartStore()
 const authStore = useAuthStore()
+const orderStore = useOrderStore()
+const router = useRouter()
+
+// Создаем вычисляемые свойства для доступа к данным корзины
+const cartItems = computed(() => {
+  if (cartStore.$state.cart && Array.isArray(cartStore.$state.cart.items)) {
+    return cartStore.$state.cart.items
+  }
+  return []
+})
+const cartTotal = computed(() => {
+  return cartItems.value.reduce((total, item) => total + item.totalPrice, 0)
+})
 
 const orderForm = ref({
   fullName: '',
@@ -195,7 +207,7 @@ onMounted(async () => {
 })
 
 const submitOrder = async () => {
-  if (cartStore.getCartItems.length === 0) {
+  if (cartItems.value.length === 0) {
     orderError.value = 'Корзина пуста. Добавьте товары перед оформлением заказа.'
     return
   }
@@ -204,27 +216,45 @@ const submitOrder = async () => {
   orderError.value = ''
   
   try {
-    // В реальном приложении здесь будет запрос к бэкенду
-    const response = await mockApi.createOrder(
-      orderForm.value.address, 
-      orderForm.value.phone
-    )
-    
-    // Генерируем номер заказа для показа в модальном окне
-    orderNumber.value = `ORD-${response.data.id}`
-    
-    // Сбрасываем форму
-    orderForm.value = {
-      fullName: '',
-      phone: '',
-      address: '',
-      comment: '',
-      paymentMethod: 'card'
+    // Создаем объект с данными заказа
+    const orderData = {
+      address: orderForm.value.address,
+      phone: orderForm.value.phone,
+      fullName: orderForm.value.fullName,
+      paymentMethod: orderForm.value.paymentMethod,
+      comment: orderForm.value.comment || '',
+      items: cartItems.value.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity
+      }))
     }
     
-    // Показываем модальное окно успеха
-    showSuccessModal.value = true
+    // Используем хранилище заказов для создания заказа
+    const order = await orderStore.createOrder(orderData)
+    
+    if (order) {
+      // Генерируем номер заказа для показа в модальном окне
+      orderNumber.value = `Заказ-${order.id || new Date().getTime()}`
+      
+      // Очищаем корзину после успешного оформления заказа
+      await cartStore.clearCart()
+      
+      // Сбрасываем форму
+      orderForm.value = {
+        fullName: '',
+        phone: '',
+        address: '',
+        comment: '',
+        paymentMethod: 'card'
+      }
+      
+      // Показываем модальное окно успеха
+      showSuccessModal.value = true
+    } else {
+      orderError.value = orderStore.error || 'Произошла ошибка при оформлении заказа. Пожалуйста, попробуйте снова.'
+    }
   } catch (error: any) {
+    console.error('Ошибка при оформлении заказа:', error)
     orderError.value = error.response?.data?.message || 'Произошла ошибка при оформлении заказа. Пожалуйста, попробуйте снова.'
   } finally {
     isSubmitting.value = false

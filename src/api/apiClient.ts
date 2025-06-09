@@ -121,6 +121,62 @@ const createRealClient = () => {
       if (response.data && response.data.token) {
         localStorage.setItem('access_token', response.data.token);
       }
+      
+      // Базовый URL для изображений
+      const baseImageUrl = 'http://localhost:8080';
+      
+      // Преобразуем поля бэкенда в формат, ожидаемый фронтендом
+      if (response.data) {
+        // Если это массив объектов
+        if (Array.isArray(response.data)) {
+          response.data.forEach(item => {
+            // Преобразование imagePath в imageUrl
+            if (item.imagePath) {
+              // Добавляем базовый URL, если путь начинается с /
+              item.imageUrl = item.imagePath.startsWith('/') ? `${baseImageUrl}${item.imagePath}` : item.imagePath;
+            }
+            
+            // Преобразование title в name, если name отсутствует
+            if (item.title && !item.name) {
+              item.name = item.title;
+            }
+            
+            // Преобразование manufacturer объекта в строку
+            if (item.manufacturer && typeof item.manufacturer === 'object') {
+              item.manufacturer = item.manufacturer.name;
+            }
+            
+            // Добавление типа, если он отсутствует
+            if (item.componentType) {
+              item.type = item.componentType;
+            }
+          });
+        } 
+        // Если это один объект
+        else if (typeof response.data === 'object') {
+          // Преобразование imagePath в imageUrl
+          if (response.data.imagePath) {
+            // Добавляем базовый URL, если путь начинается с /
+            response.data.imageUrl = response.data.imagePath.startsWith('/') ? `${baseImageUrl}${response.data.imagePath}` : response.data.imagePath;
+          }
+          
+          // Преобразование title в name, если name отсутствует
+          if (response.data.title && !response.data.name) {
+            response.data.name = response.data.title;
+          }
+          
+          // Преобразование manufacturer объекта в строку
+          if (response.data.manufacturer && typeof response.data.manufacturer === 'object') {
+            response.data.manufacturer = response.data.manufacturer.name;
+          }
+          
+          // Добавление типа, если он отсутствует
+          if (response.data.componentType) {
+            response.data.type = response.data.componentType;
+          }
+        }
+      }
+      
       return response;
     },
     async (error) => {

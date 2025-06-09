@@ -4,19 +4,23 @@ import apiClient from '@/api/apiClient'
 interface OrderItem {
   productId: number
   productName: string
+  productPrice: number
   quantity: number
-  price: number
 }
 
 interface Order {
   id: number
   userId: number
   status: string
-  totalPrice: number
+  items: OrderItem[]
+  total: number
+  address: string
+  phone: string
+  fullName: string
+  comment?: string
+  paymentMethod: string
   createdAt: string
   updatedAt: string
-  deliveryAddress: string
-  items: OrderItem[]
 }
 
 interface OrderStatusHistory {
@@ -37,7 +41,7 @@ interface OrderStatusUpdateRequest {
 }
 
 interface OrderState {
-  userOrders: Order[]
+  orders: Order[]
   currentOrder: Order | null
   orderHistory: OrderStatusHistory[]
   ordersByStatus: Record<string, Order[]>
@@ -48,7 +52,7 @@ interface OrderState {
 
 export const useOrderStore = defineStore('order', {
   state: (): OrderState => ({
-    userOrders: [],
+    orders: [],
     currentOrder: null,
     orderHistory: [],
     ordersByStatus: {},
@@ -58,7 +62,7 @@ export const useOrderStore = defineStore('order', {
   }),
 
   getters: {
-    getUserOrders: (state) => state.userOrders,
+    getOrders: (state) => state.orders,
     getCurrentOrder: (state) => state.currentOrder,
     getOrderHistory: (state) => state.orderHistory,
     getOrdersByStatus: (state) => (status: string) => state.ordersByStatus[status] || [],
@@ -68,100 +72,79 @@ export const useOrderStore = defineStore('order', {
   },
 
   actions: {
-    async fetchUserOrders(userId: number) {
+    async fetchOrders() {
       this.isLoading = true
       this.error = null
 
       try {
-        const response = await apiClient.get(`/orders?userId=${userId}`)
-        this.userOrders = response.data
-        return response.data
+        const response = await apiClient.get('/orders')
+        this.orders = Array.isArray(response.data) ? response.data : [response.data]
+        return this.orders
       } catch (error: any) {
-        this.error = error.response?.data?.message || 'Failed to fetch user orders'
+        console.error('Error fetching orders:', error)
+        this.error = error.response?.data?.message || 'Ошибка при загрузке заказов'
         return []
       } finally {
         this.isLoading = false
       }
     },
 
-    async fetchOrder(orderId: number) {
+    async fetchOrderById(orderId: number) {
       this.isLoading = true
       this.error = null
 
       try {
         const response = await apiClient.get(`/orders/${orderId}`)
         this.currentOrder = response.data
-        return response.data
+        return this.currentOrder
       } catch (error: any) {
-        this.error = error.response?.data?.message || 'Failed to fetch order'
+        console.error(`Error fetching order ${orderId}:`, error)
+        this.error = error.response?.data?.message || 'Ошибка при загрузке заказа'
         return null
       } finally {
         this.isLoading = false
       }
     },
 
-    async createOrderFromCart(userId: number) {
+    async createOrder(orderData: any) {
       this.isLoading = true
       this.error = null
 
       try {
-        const response = await apiClient.post('/orders/from-cart', { userId })
+        const response = await apiClient.post('/orders', orderData)
         
-        this.userOrders.push(response.data)
-        this.currentOrder = response.data
-        
-        return response.data
-      } catch (error: any) {
-        this.error = error.response?.data?.message || 'Failed to create order from cart'
-        return null
-      } finally {
-        this.isLoading = false
-      }
-    },
-
-    async createOrderFromConfiguration(userId: number, configurationId: number) {
-      this.isLoading = true
-      this.error = null
-
-      try {
-        const response = await apiClient.post('/orders/from-configuration', {
-          userId,
-          configurationId
-        })
-        
-        this.userOrders.push(response.data)
-        this.currentOrder = response.data
-        
-        return response.data
-      } catch (error: any) {
-        this.error = error.response?.data?.message || 'Failed to create order from configuration'
-        return null
-      } finally {
-        this.isLoading = false
-      }
-    },
-
-    async updateOrderStatus(orderId: number, status: string, comment?: string) {
-      this.isLoading = true
-      this.error = null
-
-      try {
-        const response = await apiClient.put(`/orders/${orderId}/status`, {
-          status,
-          comment
-        })
-        
-        this.currentOrder = response.data
-        
-        // Обновляем заказ в списке заказов пользователя
-        const index = this.userOrders.findIndex(o => o.id === orderId)
-        if (index !== -1) {
-          this.userOrders[index] = response.data
+        // Добавляем новый заказ в список заказов
+        if (response.data) {
+          this.orders.push(response.data)
         }
         
         return response.data
       } catch (error: any) {
-        this.error = error.response?.data?.message || 'Failed to update order status'
+        console.error('Error creating order:', error)
+        this.error = error.response?.data?.message || 'Ошибка при создании заказа'
+        return null
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    async cancelOrder(orderId: number) {
+      this.isLoading = true
+      this.error = null
+
+      try {
+        const response = await apiClient.put(`/orders/${orderId}/cancel`)
+        
+        // Обновляем статус заказа в списке
+        const orderIndex = this.orders.findIndex((order) => order.id === orderId)
+        if (orderIndex !== -1) {
+          this.orders[orderIndex] = response.data
+        }
+        
+        return response.data
+      } catch (error: any) {
+        console.error(`Error cancelling order ${orderId}:`, error)
+        this.error = error.response?.data?.message || 'Ошибка при отмене заказа'
         return null
       } finally {
         this.isLoading = false
@@ -227,6 +210,37 @@ export const useOrderStore = defineStore('order', {
         return response.data
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to fetch order statistics'
+        return null
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    async updateOrderStatus(orderId: number, status: string, comment?: string) {
+      this.isLoading = true
+      this.error = null
+
+      try {
+        const response = await apiClient.put(`/orders/${orderId}/status`, {
+          status: status,
+          comment: comment || ''
+        })
+        
+        // Обновляем статус заказа в списке
+        const orderIndex = this.orders.findIndex((order) => order.id === orderId)
+        if (orderIndex !== -1) {
+          this.orders[orderIndex] = response.data
+        }
+        
+        // Обновляем текущий заказ, если он загружен
+        if (this.currentOrder && this.currentOrder.id === orderId) {
+          this.currentOrder = response.data
+        }
+        
+        return response.data
+      } catch (error: any) {
+        console.error(`Error updating order status ${orderId}:`, error)
+        this.error = error.response?.data?.message || 'Ошибка при обновлении статуса заказа'
         return null
       } finally {
         this.isLoading = false
