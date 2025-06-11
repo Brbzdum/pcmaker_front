@@ -28,11 +28,11 @@ export const useConfiguratorStore = defineStore('configurator', {
       CPU: null,
       GPU: null,
       RAM: null,
-      Motherboard: null,
-      Storage: null,
-      PowerSupply: null,
-      Case: null,
-      Cooling: null
+      MB: null,
+      STORAGE: null,
+      PSU: null,
+      CASE: null,
+      COOLER: null
     },
     compatibility: null,
     isLoading: false,
@@ -77,25 +77,85 @@ export const useConfiguratorStore = defineStore('configurator', {
           compatible: true,
           issues: []
         }
-        return
+        return this.compatibility
       }
       
       this.isLoading = true
       this.error = null
       
       try {
-        const response = await apiClient.post('/compatibility/check', {
-          componentIds
-        })
+        // Получаем первый компонент как основу для проверки
+        const firstComponentId = componentIds[0]
+        // Остальные компоненты как существующие
+        const otherComponentIds = componentIds.slice(1)
         
-        this.compatibility = response.data
-        return response.data
+        // Используем API проверки конфигурации
+        const response = await apiClient.post(
+          `/compatibility/check-configuration?newComponentId=${firstComponentId}`, 
+          otherComponentIds
+        )
+        
+        // Если компоненты совместимы
+        if (response.data === true) {
+          this.compatibility = {
+            compatible: true,
+            issues: []
+          }
+        } else {
+          // Если не совместимы, нужно получить причины несовместимости
+          // Для этого проверяем каждую пару компонентов
+          const issues: string[] = []
+          
+          for (let i = 0; i < componentIds.length; i++) {
+            for (let j = i + 1; j < componentIds.length; j++) {
+              try {
+                const checkResponse = await apiClient.post(
+                  `/compatibility/check?sourceId=${componentIds[i]}&targetId=${componentIds[j]}`, 
+                  {}
+                )
+                
+                if (checkResponse.data === false) {
+                  const sourceComponent = this.getComponentById(componentIds[i])
+                  const targetComponent = this.getComponentById(componentIds[j])
+                  
+                  if (sourceComponent && targetComponent) {
+                    issues.push(`Компоненты "${sourceComponent.name}" и "${targetComponent.name}" несовместимы.`)
+                  }
+                }
+              } catch (error) {
+                console.error('Error checking component pair compatibility:', error)
+              }
+            }
+          }
+          
+          this.compatibility = {
+            compatible: false,
+            issues: issues.length > 0 ? issues : ['Обнаружены проблемы совместимости между компонентами.']
+          }
+        }
+        
+        return this.compatibility
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to check compatibility'
-        return null
+        this.compatibility = {
+          compatible: false,
+          issues: ['Ошибка при проверке совместимости: ' + this.error]
+        }
+        return this.compatibility
       } finally {
         this.isLoading = false
       }
+    },
+    
+    // Вспомогательный метод для получения компонента по ID
+    getComponentById(id: number): Component | null {
+      for (const type in this.selectedComponents) {
+        const component = this.selectedComponents[type as keyof typeof this.selectedComponents]
+        if (component && component.id === id) {
+          return component
+        }
+      }
+      return null
     },
     
     async saveConfiguration(name: string) {

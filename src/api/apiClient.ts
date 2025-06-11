@@ -1,6 +1,12 @@
 import axios from 'axios'
 import mockApi from './mockApi'
 
+// Расширяем тип AxiosInstance для добавления нашего метода
+interface ExtendedAxiosInstance extends ReturnType<typeof axios.create> {
+  getManufacturerName: (manufacturerId: number) => Promise<string>;
+  getCompatibleComponents: (sourceId: number, targetType: string) => Promise<any[]>;
+}
+
 // Определяем, используем ли мы реальный API или моки
 const USE_MOCK_API = false; // Изменено на false для использования реального API
 
@@ -91,7 +97,39 @@ const createRealClient = () => {
       'Content-Type': 'application/json'
     },
     withCredentials: true // Добавляем для передачи куки между доменами, если необходимо
-  });
+  }) as ExtendedAxiosInstance;
+  
+  // Добавляем функцию для получения имени производителя по ID
+  instance.getManufacturerName = async (manufacturerId: number): Promise<string> => {
+    try {
+      const response = await instance.get(`/manufacturers/${manufacturerId}/name`);
+      return response.data.name || 'Неизвестный производитель';
+    } catch (error) {
+      console.error('Error fetching manufacturer name:', error);
+      return 'Неизвестный производитель';
+    }
+  };
+  
+  // Добавляем функцию для получения совместимых компонентов
+  const getCompatibleComponents = async (sourceId: number, targetType: string): Promise<any[]> => {
+    try {
+      // Проверяем наличие токена авторизации
+      const token = localStorage.getItem('access_token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      
+      const response = await instance.get(
+        `/compatibility/compatible/${sourceId}?targetType=${targetType}`,
+        { headers }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching compatible components:', error);
+      return [];
+    }
+  };
+  
+  // Добавляем метод в экземпляр
+  instance.getCompatibleComponents = getCompatibleComponents;
   
   // Request interceptor for API calls
   instance.interceptors.request.use(
@@ -127,59 +165,173 @@ const createRealClient = () => {
       
       // Преобразуем поля бэкенда в формат, ожидаемый фронтендом
       if (response.data) {
+        // Функция для обработки дат в объекте
+        const processDateFields = (item: any) => {
+          // Обработка полей даты
+          if (item.createdAt) {
+            try {
+              console.log('Processing createdAt date:', item.createdAt); // Отладка
+              
+              // Проверяем, что дата валидная
+              const date = new Date(item.createdAt);
+              if (isNaN(date.getTime())) {
+                console.warn('Invalid createdAt date detected:', item.createdAt);
+                // Если дата некорректная, пробуем исправить формат
+                if (typeof item.createdAt === 'string') {
+                  // Пробуем разные форматы
+                  if (item.createdAt.includes('.')) {
+                    // Если дата в формате dd.MM.yyyy
+                    const parts = item.createdAt.split('.');
+                    if (parts.length === 3) {
+                      const newDateStr = `${parts[2]}-${parts[1]}-${parts[0]}T00:00:00.000Z`;
+                      console.log('Attempting to fix date format:', newDateStr);
+                      const newDate = new Date(newDateStr);
+                      if (!isNaN(newDate.getTime())) {
+                        item.createdAt = newDateStr;
+                        console.log('Fixed date:', item.createdAt);
+                      } else {
+                        item.createdAt = null;
+                      }
+                    } else {
+                      item.createdAt = null;
+                    }
+                  } else {
+                    item.createdAt = null;
+                  }
+                } else {
+                  item.createdAt = null;
+                }
+              } else {
+                // Дата валидная, но для уверенности преобразуем в ISO формат
+                item.createdAt = date.toISOString();
+                console.log('Normalized date to ISO:', item.createdAt);
+              }
+            } catch (e) {
+              console.error('Error processing createdAt date:', e);
+              item.createdAt = null;
+            }
+          }
+          
+          if (item.updatedAt) {
+            try {
+              console.log('Processing updatedAt date:', item.updatedAt); // Отладка
+              
+              // Проверяем, что дата валидная
+              const date = new Date(item.updatedAt);
+              if (isNaN(date.getTime())) {
+                console.warn('Invalid updatedAt date detected:', item.updatedAt);
+                // Аналогичная логика исправления как для createdAt
+                if (typeof item.updatedAt === 'string') {
+                  if (item.updatedAt.includes('.')) {
+                    const parts = item.updatedAt.split('.');
+                    if (parts.length === 3) {
+                      const newDateStr = `${parts[2]}-${parts[1]}-${parts[0]}T00:00:00.000Z`;
+                      console.log('Attempting to fix date format:', newDateStr);
+                      const newDate = new Date(newDateStr);
+                      if (!isNaN(newDate.getTime())) {
+                        item.updatedAt = newDateStr;
+                        console.log('Fixed date:', item.updatedAt);
+                      } else {
+                        item.updatedAt = null;
+                      }
+                    } else {
+                      item.updatedAt = null;
+                    }
+                  } else {
+                    item.updatedAt = null;
+                  }
+                } else {
+                  item.updatedAt = null;
+                }
+              } else {
+                // Дата валидная, но для уверенности преобразуем в ISO формат
+                item.updatedAt = date.toISOString();
+                console.log('Normalized date to ISO:', item.updatedAt);
+              }
+            } catch (e) {
+              console.error('Error processing updatedAt date:', e);
+              item.updatedAt = null;
+            }
+          }
+          
+          // Преобразование imagePath в imageUrl
+          if (item.imagePath) {
+            // Добавляем базовый URL, если путь начинается с /
+            item.imageUrl = item.imagePath.startsWith('/') ? `${baseImageUrl}${item.imagePath}` : item.imagePath;
+          }
+          
+          // Преобразование title в name, если name отсутствует
+          if (item.title && !item.name) {
+            item.name = item.title;
+          }
+          
+          // Добавление типа, если он отсутствует и есть componentType
+          if (item.componentType && !item.type) {
+            item.type = item.componentType;
+          }
+          
+          // Добавление categoryId, если его нет, но есть category_id или поле category с id
+          if (!item.categoryId) {
+            if (item.category_id) {
+              item.categoryId = item.category_id;
+            } else if (item.category && item.category.id) {
+              item.categoryId = item.category.id;
+            }
+            console.log(`Set categoryId to ${item.categoryId} for ${item.name}`);
+          }
+          
+          // Добавление manufacturerName если есть manufacturerId но нет manufacturer
+          if (item.manufacturerId && !item.manufacturer) {
+            // Асинхронно получаем имя производителя по ID
+            // Но пока просто установим временное значение, которое будет заменено позже
+            item.manufacturer = "Загрузка...";
+            
+            // Запускаем асинхронный запрос для получения имени производителя
+            (async () => {
+              try {
+                if (typeof instance.getManufacturerName === 'function') {
+                  const name = await instance.getManufacturerName(item.manufacturerId);
+                  item.manufacturer = name;
+                }
+              } catch (error) {
+                console.error('Error fetching manufacturer name:', error);
+              }
+            })();
+          }
+          
+          // Добавление categoryName если есть categoryId но нет category
+          if (item.categoryId && !item.category) {
+            // В идеале здесь нужно получить имя категории по ID
+            // Но пока просто установим заглушку
+            item.category = "Категория #" + item.categoryId;
+          }
+          
+          // Добавление рейтинга если его нет
+          if (!item.rating) {
+            item.rating = 0;
+          }
+          
+          return item;
+        };
+      
         // Если это массив объектов
         if (Array.isArray(response.data)) {
           response.data.forEach(item => {
-            // Преобразование imagePath в imageUrl
-            if (item.imagePath) {
-              // Добавляем базовый URL, если путь начинается с /
-              item.imageUrl = item.imagePath.startsWith('/') ? `${baseImageUrl}${item.imagePath}` : item.imagePath;
-            }
-            
-            // Преобразование title в name, если name отсутствует
-            if (item.title && !item.name) {
-              item.name = item.title;
-            }
-            
-            // Преобразование manufacturer объекта в строку
-            if (item.manufacturer && typeof item.manufacturer === 'object') {
-              item.manufacturer = item.manufacturer.name;
-            }
-            
-            // Добавление типа, если он отсутствует
-            if (item.componentType) {
-              item.type = item.componentType;
-            }
+            processDateFields(item);
           });
         } 
         // Если это один объект
         else if (typeof response.data === 'object') {
-          // Преобразование imagePath в imageUrl
-          if (response.data.imagePath) {
-            // Добавляем базовый URL, если путь начинается с /
-            response.data.imageUrl = response.data.imagePath.startsWith('/') ? `${baseImageUrl}${response.data.imagePath}` : response.data.imagePath;
-          }
-          
-          // Преобразование title в name, если name отсутствует
-          if (response.data.title && !response.data.name) {
-            response.data.name = response.data.title;
-          }
-          
-          // Преобразование manufacturer объекта в строку
-          if (response.data.manufacturer && typeof response.data.manufacturer === 'object') {
-            response.data.manufacturer = response.data.manufacturer.name;
-          }
-          
-          // Добавление типа, если он отсутствует
-          if (response.data.componentType) {
-            response.data.type = response.data.componentType;
-          }
+          processDateFields(response.data);
         }
       }
       
+      console.log('API Response:', response.data); // Добавляем логирование для отладки
       return response;
     },
     async (error) => {
+      console.error('API Error:', error.response?.data || error.message); // Добавляем логирование ошибок
+      
       const originalRequest = error.config;
       
       // If the error is due to an expired token

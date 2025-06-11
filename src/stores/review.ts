@@ -4,13 +4,17 @@ import apiClient from '@/api/apiClient'
 interface Review {
   id: number
   userId: number
+  username: string
   productId: number
+  productName: string
   rating: number
   comment: string
-  createdAt: string
-  moderated: boolean
-  approved: boolean
+  isApproved: boolean
+  isVerifiedPurchase: boolean
   reportCount: number
+  isModerated: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 interface ReviewDto {

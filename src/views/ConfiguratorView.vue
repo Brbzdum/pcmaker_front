@@ -1,11 +1,11 @@
 <template>
   <div class="configurator">
-    <h1>PC Configurator</h1>
+    <h1>Конфигуратор ПК</h1>
     
     <div v-if="authStore.getIsAuthenticated">
       <div class="configurator-layout">
         <div class="component-selection">
-          <h2>Select Components</h2>
+          <h2>Выберите компоненты</h2>
           
           <div class="component-types">
             <div 
@@ -15,25 +15,28 @@
               :class="{ 'has-component': component !== null }"
             >
               <div class="component-type-header">
-                <h3>{{ type }}</h3>
+                <h3>{{ translateComponentType(type) }}</h3>
                 <button 
                   v-if="component" 
                   class="btn-remove" 
                   @click="removeComponent(type)"
                 >
-                  Remove
+                  Удалить
                 </button>
               </div>
               
               <div v-if="component" class="selected-component">
                 <h4>{{ component.name }}</h4>
-                <div class="component-manufacturer">{{ component.manufacturer }}</div>
-                <div class="component-price">${{ component.price.toFixed(2) }}</div>
+                <div class="component-manufacturer">{{ componentManufacturers[type] || 'Загрузка...' }}</div>
+                <div class="component-price">{{ component.price.toFixed(2) }} ₽</div>
               </div>
               
               <div v-else class="no-component">
-                <RouterLink :to="`/catalog?type=${type}`" class="btn-add">
-                  Select {{ type }}
+                <RouterLink 
+                  :to="getComponentSelectionUrl(type)" 
+                  class="btn-add"
+                >
+                  Выбрать {{ translateComponentType(type) }}
                 </RouterLink>
               </div>
             </div>
@@ -42,17 +45,17 @@
         
         <div class="configuration-summary">
           <div class="summary-card">
-            <h2>Configuration Summary</h2>
+            <h2>Сводка конфигурации</h2>
             
             <div class="price-summary">
               <div class="total-price">
-                <span>Total Price:</span>
-                <span>${{ configuratorStore.getTotalPrice.toFixed(2) }}</span>
+                <span>Общая стоимость:</span>
+                <span>{{ configuratorStore.getTotalPrice.toFixed(2) }} ₽</span>
               </div>
             </div>
             
             <div v-if="configuratorStore.getIsLoading" class="compatibility-checking">
-              Checking compatibility...
+              Проверка совместимости...
             </div>
             
             <div 
@@ -64,11 +67,11 @@
               }"
             >
               <div v-if="compatibilityResult.compatible">
-                <h3>✓ Compatible</h3>
-                <p>All components are compatible with each other.</p>
+                <h3>✓ Совместимо</h3>
+                <p>Все компоненты совместимы друг с другом.</p>
               </div>
               <div v-else>
-                <h3>✗ Incompatible</h3>
+                <h3>✗ Несовместимо</h3>
                 <ul class="issues-list">
                   <li v-for="(issue, index) in compatibilityResult.issues" :key="index">
                     {{ issue }}
@@ -83,7 +86,7 @@
                 class="btn-check"
                 :disabled="!isConfigurationComplete"
               >
-                Check Compatibility
+                Проверить совместимость
               </button>
               
               <button 
@@ -91,7 +94,7 @@
                 class="btn-add-to-cart"
                 :disabled="!canAddToCart"
               >
-                Add to Cart
+                Добавить в корзину
               </button>
               
               <button 
@@ -99,7 +102,7 @@
                 class="btn-save"
                 :disabled="!isConfigurationComplete"
               >
-                Save Configuration
+                Сохранить конфигурацию
               </button>
             </div>
           </div>
@@ -109,49 +112,53 @@
       <!-- Save Configuration Modal -->
       <div v-if="showSaveModal" class="modal-overlay">
         <div class="modal">
-          <h3>Save Configuration</h3>
+          <h3>Сохранить конфигурацию</h3>
           <div class="modal-content">
             <div class="form-group">
-              <label for="config-name">Configuration Name</label>
+              <label for="config-name">Название конфигурации</label>
               <input type="text" id="config-name" v-model="configName">
             </div>
           </div>
           <div class="modal-actions">
-            <button @click="showSaveModal = false" class="btn-cancel">Cancel</button>
-            <button @click="saveConfiguration" class="btn-save">Save</button>
+            <button @click="showSaveModal = false" class="btn-cancel">Отмена</button>
+            <button @click="saveConfiguration" class="btn-save">Сохранить</button>
           </div>
         </div>
       </div>
     </div>
     
     <div v-else class="login-required">
-      <p>Please log in to use the PC Configurator.</p>
-      <RouterLink to="/login" class="btn-login">Log In</RouterLink>
+      <p>Пожалуйста, войдите в аккаунт, чтобы использовать конфигуратор ПК.</p>
+      <RouterLink to="/login" class="btn-login">Войти</RouterLink>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfiguratorStore } from '@/stores/configurator'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
+import { useCompatibilityStore } from '@/stores/compatibility'
+import apiClient from '@/api/apiClient'
 
 const router = useRouter()
 const configuratorStore = useConfiguratorStore()
 const authStore = useAuthStore()
 const cartStore = useCartStore()
+const compatibilityStore = ref(useCompatibilityStore())
 
 const showSaveModal = ref(false)
 const configName = ref('')
+const componentManufacturers = ref<Record<string, string>>({})
 
 // Создаем локальные вычисляемые свойства для доступа к свойствам конфигуратора
 const compatibilityResult = computed(() => configuratorStore.$state.compatibility)
 const isConfigurationComplete = computed(() => {
   // Проверяем, что все обязательные компоненты выбраны
   const components = configuratorStore.getSelectedComponents
-  const requiredTypes = ['CPU', 'Motherboard', 'RAM', 'Storage', 'PSU', 'Case']
+  const requiredTypes = ['CPU', 'MB', 'RAM', 'STORAGE', 'PSU', 'CASE']
   return requiredTypes.every(type => components[type] !== null)
 })
 
@@ -161,12 +168,79 @@ const canAddToCart = computed(() => {
          compatibilityResult.value.compatible
 })
 
+// Функция для перевода типов компонентов
+const translateComponentType = (type: string) => {
+  const translations: Record<string, string> = {
+    'CPU': 'Процессор',
+    'GPU': 'Видеокарта',
+    'RAM': 'Оперативная память',
+    'MB': 'Материнская плата',
+    'STORAGE': 'Хранилище',
+    'PSU': 'Блок питания',
+    'CASE': 'Корпус',
+    'COOLER': 'Охлаждение'
+  }
+  
+  return translations[type] || type
+}
+
+// Функция для получения имени производителя
+const getManufacturerName = async (component: any) => {
+  if (!component || !component.manufacturer) return 'Неизвестный производитель';
+  
+  // Если manufacturer - это строка, возвращаем её
+  if (typeof component.manufacturer === 'string') {
+    return component.manufacturer;
+  }
+  
+  // Если manufacturer - это объект с полем name, возвращаем его
+  if (typeof component.manufacturer === 'object' && component.manufacturer.name) {
+    return component.manufacturer.name;
+  }
+  
+  // Если manufacturer - это число, делаем запрос к API
+  if (typeof component.manufacturer === 'number' || typeof component.manufacturerId === 'number') {
+    const manufacturerId = component.manufacturer || component.manufacturerId;
+    try {
+      // Используем метод из apiClient для получения имени производителя
+      if (typeof apiClient.getManufacturerName === 'function') {
+        return await apiClient.getManufacturerName(manufacturerId);
+      }
+      return `Производитель #${manufacturerId}`;
+    } catch (error) {
+      console.error('Ошибка при получении имени производителя:', error);
+      return `Производитель #${manufacturerId}`;
+    }
+  }
+  
+  return 'Неизвестный производитель';
+}
+
+// Обновляем имена производителей при изменении выбранных компонентов
+watch(() => configuratorStore.getSelectedComponents, async (components) => {
+  for (const [type, component] of Object.entries(components)) {
+    if (component) {
+      componentManufacturers.value[type] = await getManufacturerName(component);
+    } else {
+      componentManufacturers.value[type] = '';
+    }
+  }
+  
+  // Автоматически проверяем совместимость при изменении компонентов
+  const hasComponents = Object.values(components).some(component => component !== null);
+  const multipleComponents = Object.values(components).filter(component => component !== null).length >= 2;
+  
+  if (hasComponents && multipleComponents) {
+    checkCompatibility();
+  }
+}, { deep: true, immediate: true });
+
 const checkCompatibility = async () => {
   try {
     // Предполагаем, что в store есть метод для проверки совместимости
     await configuratorStore.checkCompatibility()
   } catch (error) {
-    console.error('Error checking compatibility:', error)
+    console.error('Ошибка при проверке совместимости:', error)
   }
 }
 
@@ -182,7 +256,10 @@ const removeComponent = (type: string) => {
 }
 
 const addToCart = async () => {
-  if (!canAddToCart.value) return
+  if (!canAddToCart.value) {
+    alert('Невозможно добавить в корзину: проверьте совместимость компонентов')
+    return
+  }
   
   // Here we would convert the configuration to cart items
   // For now, we'll assume the backend has an endpoint to add a full configuration
@@ -199,9 +276,44 @@ const addToCart = async () => {
 const saveConfiguration = async () => {
   if (!configName.value) return
   
-  await configuratorStore.saveConfiguration(configName.value)
-  showSaveModal.value = false
-  configName.value = ''
+  try {
+    const result = await configuratorStore.saveConfiguration(configName.value)
+    if (result) {
+      showSaveModal.value = false
+      configName.value = ''
+      alert('Конфигурация успешно сохранена!')
+    }
+  } catch (error) {
+    console.error('Ошибка при сохранении конфигурации:', error)
+  }
+}
+
+// Функция для получения URL для выбора компонента с учетом совместимости
+const getComponentSelectionUrl = (type: string) => {
+  const selectedComponents = configuratorStore.getSelectedComponents;
+  const hasComponents = Object.values(selectedComponents).some(component => component !== null);
+  
+  // Преобразуем тип компонента в формат, понятный бэкенду
+  const componentTypeMapping: Record<string, string> = {
+    'Motherboard': 'MB',
+    'Storage': 'STORAGE',
+    'Case': 'CASE',
+    'Cooling': 'COOLER'
+  }
+  
+  const actualType = componentTypeMapping[type] || type;
+  
+  // Если еще нет выбранных компонентов, просто переходим в каталог с фильтром по типу
+  if (!hasComponents) {
+    return `/catalog?componentType=${actualType}`;
+  }
+  
+  // Если есть выбранные компоненты, добавляем параметр для фильтрации по совместимости
+  const selectedComponentIds = Object.values(selectedComponents)
+    .filter(component => component !== null)
+    .map(component => component!.id);
+  
+  return `/catalog?componentType=${actualType}&compatibleWith=${selectedComponentIds.join(',')}`;
 }
 </script>
 

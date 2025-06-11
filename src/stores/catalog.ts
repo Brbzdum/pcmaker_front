@@ -21,6 +21,8 @@ interface Filter {
   priceMax?: number
   categoryIds?: number[]
   searchQuery?: string
+  componentType?: string
+  compatibleIds?: number[]
 }
 
 interface CatalogState {
@@ -155,6 +157,16 @@ export const useCatalogStore = defineStore('catalog', {
         filtered = filtered.filter(c => this.filter.type!.includes(c.type))
       }
 
+      // Filter by specific component type (for configurator)
+      if (this.filter.componentType) {
+        filtered = filtered.filter(c => c.type === this.filter.componentType)
+      }
+
+      // Filter by compatible component IDs (from compatibility check)
+      if (this.filter.compatibleIds && this.filter.compatibleIds.length > 0) {
+        filtered = filtered.filter(c => this.filter.compatibleIds!.includes(c.id))
+      }
+
       // Filter by manufacturer
       if (this.filter.manufacturer && this.filter.manufacturer.length > 0) {
         filtered = filtered.filter(c => this.filter.manufacturer!.includes(c.manufacturer))
@@ -171,7 +183,10 @@ export const useCatalogStore = defineStore('catalog', {
 
       // Filter by category
       if (this.filter.categoryIds && this.filter.categoryIds.length > 0) {
-        filtered = filtered.filter(c => c.categoryId && this.filter.categoryIds!.includes(c.categoryId))
+        filtered = filtered.filter(c => {
+          console.log('Component:', c.name, 'Category ID:', c.categoryId)
+          return c.categoryId && this.filter.categoryIds!.includes(c.categoryId)
+        })
       }
 
       // Filter by search query

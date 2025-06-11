@@ -141,12 +141,27 @@ const getRatingPercentage = (rating: number) => {
 }
 
 const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr)
-  return new Intl.DateTimeFormat('ru-RU', { 
-    day: '2-digit', 
-    month: '2-digit', 
-    year: 'numeric' 
-  }).format(date)
+  if (!dateStr) {
+    return 'Н/Д';
+  }
+  
+  try {
+    const date = new Date(dateStr);
+    
+    // Проверка на валидность даты
+    if (isNaN(date.getTime())) {
+      return 'Некорректная дата';
+    }
+    
+    return new Intl.DateTimeFormat('ru-RU', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    }).format(date);
+  } catch (error) {
+    console.error('Ошибка форматирования даты:', error);
+    return 'Ошибка даты';
+  }
 }
 
 const canEdit = (review: any) => {

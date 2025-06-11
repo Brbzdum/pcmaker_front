@@ -64,41 +64,11 @@
             </div>
             
             <div v-else-if="orders.length > 0" class="orders-list">
-              <div 
+              <OrderCard 
                 v-for="order in orders" 
                 :key="order.id"
-                class="order-card"
-              >
-                <div class="order-header">
-                  <div class="order-info">
-                    <div class="order-number">Заказ #{{ order.id }}</div>
-                    <div class="order-date">{{ formatDate(order.createdAt) }}</div>
-                  </div>
-                  <div class="order-status" :class="getStatusClass(order.status)">
-                    {{ translateStatus(order.status) }}
-                  </div>
-                </div>
-                
-                <div class="order-items">
-                  <div 
-                    v-for="(item, index) in order.items" 
-                    :key="index"
-                    class="order-item"
-                  >
-                    <div class="item-name">{{ item.productName }}</div>
-                    <div class="item-details">
-                      <span>{{ item.quantity }} × {{ item.productPrice.toFixed(2) }} ₽</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="order-footer">
-                  <div class="order-total">
-                    <span>Итого:</span>
-                    <span>{{ order.total.toFixed(2) }} ₽</span>
-                  </div>
-                </div>
-              </div>
+                :order="order"
+              />
             </div>
             
             <div v-else class="empty-state">
@@ -240,6 +210,7 @@ import { useConfiguratorStore } from '@/stores/configurator'
 import { useOrderStore } from '@/stores/order'
 import apiClient from '@/api/apiClient'
 import { components } from '@/api/mockData'
+import OrderCard from '@/components/OrderCard.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -350,13 +321,63 @@ const fetchUserProfile = async () => {
 
 // Форматирование даты
 const formatDate = (dateString: string) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
+  // Если дата пустая, возвращаем заглушку
+  if (!dateString) {
+    return 'Дата не указана';
+  }
+  
+  try {
+    // Пробуем напрямую преобразовать строку в объект Date
+    let date = new Date(dateString);
+    
+    // Проверяем валидность даты
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+    
+    // Если не получилось, пробуем разные форматы
+    
+    // Проверяем формат ISO с Z в конце (UTC)
+    if (dateString.includes('T') && dateString.includes('Z')) {
+      return new Date(dateString).toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+    
+    // Проверяем формат ISO без Z (локальное время)
+    if (dateString.includes('T')) {
+      return new Date(dateString + 'Z').toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+    
+    // Проверяем формат dd.MM.yyyy
+    if (dateString.includes('.') && dateString.split('.').length === 3) {
+      const parts = dateString.split('.');
+      const newDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+      if (!isNaN(newDate.getTime())) {
+        return newDate.toLocaleDateString('ru-RU', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+      }
+    }
+    
+    // Если ничего не помогло, возвращаем дату как есть
+    return dateString;
+  } catch (error) {
+    console.error('Ошибка при форматировании даты:', error);
+    return 'Ошибка даты';
+  }
 }
 
 // Перевод статуса заказа
