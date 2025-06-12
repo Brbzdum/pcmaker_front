@@ -23,6 +23,7 @@ const { currentTheme } = useTheme()
           <RouterLink to="/" class="nav-link">Главная</RouterLink>
           <RouterLink to="/catalog" class="nav-link">Каталог</RouterLink>
           <RouterLink to="/configurator" class="nav-link">Конфигуратор</RouterLink>
+          <RouterLink to="/public-configurations" class="nav-link">Готовые конфигурации</RouterLink>
         </nav>
       </div>
       

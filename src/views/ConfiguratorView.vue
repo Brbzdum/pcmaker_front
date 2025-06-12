@@ -129,6 +129,19 @@
               <input type="text" id="config-name" v-model="configName" placeholder="Введите название">
             </div>
             <div class="form-group">
+              <label for="config-category">Категория</label>
+              <select id="config-category" v-model="configCategory">
+                <option value="">Выберите категорию</option>
+                <option value="BUDGET">Бюджетная</option>
+                <option value="GAMING">Игровая</option>
+                <option value="OFFICE">Офисная</option>
+                <option value="WORKSTATION">Рабочая станция</option>
+                <option value="STREAMING">Стриминг</option>
+                <option value="DESIGN">Дизайн</option>
+                <option value="CUSTOM">Другое</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label for="config-description">Описание (необязательно)</label>
               <textarea id="config-description" v-model="configDescription" placeholder="Введите описание" rows="3"></textarea>
             </div>
@@ -166,6 +179,7 @@ const compatibilityStore = ref(useCompatibilityStore())
 const showSaveModal = ref(false)
 const configName = ref('')
 const configDescription = ref('')
+const configCategory = ref('')
 const componentManufacturers = ref<Record<string, string>>({})
 
 // Создаем локальные вычисляемые свойства для доступа к свойствам конфигуратора
@@ -201,15 +215,20 @@ const translateComponentType = (type: string) => {
 
 // Функция для получения имени производителя
 const getManufacturerName = async (component: any) => {
-  if (!component || !component.manufacturer) return 'Неизвестный производитель';
+  if (!component) return 'Неизвестный производитель';
   
   // Если manufacturer - это строка, возвращаем её
   if (typeof component.manufacturer === 'string') {
     return component.manufacturer;
   }
   
+  // Если есть manufacturerName, возвращаем его
+  if (component.manufacturerName) {
+    return component.manufacturerName;
+  }
+  
   // Если manufacturer - это объект с полем name, возвращаем его
-  if (typeof component.manufacturer === 'object' && component.manufacturer.name) {
+  if (typeof component.manufacturer === 'object' && component.manufacturer?.name) {
     return component.manufacturer.name;
   }
   
@@ -293,16 +312,18 @@ const saveConfiguration = async () => {
   
   console.log('Saving configuration with name:', configName.value)
   console.log('Description:', configDescription.value)
+  console.log('Category:', configCategory.value)
   console.log('Component IDs:', configuratorStore.getSelectedComponentIds)
   console.log('User:', authStore.getUser)
   
   try {
     showSaveModal.value = false // Закрываем модальное окно сразу
-    const result = await configuratorStore.saveConfiguration(configName.value, configDescription.value)
+    const result = await configuratorStore.saveConfiguration(configName.value, configDescription.value, configCategory.value)
     console.log('Save result:', result)
     if (result) {
       configName.value = ''
       configDescription.value = ''
+      configCategory.value = ''
       alert('Конфигурация успешно сохранена!')
     } else {
       console.error('Failed to save configuration, result is falsy')
@@ -597,7 +618,7 @@ h1 {
   margin-bottom: 0.5rem;
 }
 
-.form-group input {
+.form-group input, .form-group select {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid #ddd;

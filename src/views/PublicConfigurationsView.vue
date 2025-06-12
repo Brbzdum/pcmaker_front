@@ -1,6 +1,6 @@
 <template>
-  <div class="user-configurations">
-    <h1>Мои конфигурации</h1>
+  <div class="public-configurations">
+    <h1>Готовые конфигурации</h1>
     
     <div class="filters">
       <div class="filter-group">
@@ -37,9 +37,8 @@
       <p>{{ error }}</p>
     </div>
     
-    <div v-else-if="configurations && configurations.length === 0" class="empty-state">
-      <p>У вас пока нет сохраненных конфигураций.</p>
-      <RouterLink to="/configurator" class="btn-create">Создать конфигурацию</RouterLink>
+    <div v-else-if="!filteredConfigurations || filteredConfigurations.length === 0" class="empty-state">
+      <p>Готовые конфигурации пока не добавлены.</p>
     </div>
     
     <div v-else class="configurations-list">
@@ -54,9 +53,6 @@
         </div>
         
         <div class="config-details">
-          <div class="config-date">
-            Создана: {{ formatDate(config.createdAt) }}
-          </div>
           <div class="config-category" v-if="config.category">
             Категория: {{ translateCategory(config.category) }}
           </div>
@@ -65,13 +61,6 @@
             :class="{ 'compatible': config.isCompatible, 'incompatible': !config.isCompatible }"
           >
             {{ config.isCompatible ? 'Совместима' : 'Несовместима' }}
-          </div>
-          <div 
-            class="config-publication" 
-            :class="{ 'published': config.isPublic }"
-            v-if="config.isPublic !== undefined"
-          >
-            {{ config.isPublic ? 'Опубликована' : 'Не опубликована' }}
           </div>
           <div class="config-description" v-if="config.description">
             {{ config.description }}
@@ -84,12 +73,6 @@
           </button>
           <button @click="loadToConfigurator(config.id)" class="btn-load">
             Загрузить в конфигуратор
-          </button>
-          <button @click="togglePublish(config)" class="btn-publish" :class="{ 'published': config.isPublic }">
-            {{ config.isPublic ? 'Снять с публикации' : 'Опубликовать' }}
-          </button>
-          <button @click="confirmDelete(config.id)" class="btn-delete">
-            Удалить
           </button>
         </div>
       </div>
@@ -112,15 +95,8 @@
             >
               {{ currentConfig.isCompatible ? 'Компоненты совместимы' : 'Компоненты несовместимы' }}
             </div>
-            <div 
-              class="config-publication" 
-              :class="{ 'published': currentConfig.isPublic }"
-              v-if="currentConfig.isPublic !== undefined"
-            >
-              {{ currentConfig.isPublic ? 'Опубликована' : 'Не опубликована' }}
-            </div>
-            <div class="config-date">
-              Создана: {{ formatDate(currentConfig.createdAt) }}
+            <div class="config-category" v-if="currentConfig.category">
+              Категория: {{ translateCategory(currentConfig.category) }}
             </div>
           </div>
           
@@ -140,44 +116,19 @@
           <div v-else class="no-components">
             Конфигурация не содержит компонентов
           </div>
+          
+          <div class="config-description" v-if="currentConfig.description">
+            <h3>Описание:</h3>
+            <p>{{ currentConfig.description }}</p>
+          </div>
         </div>
         
         <div class="modal-actions">
           <button @click="loadToConfigurator(currentConfig.id)" class="btn-load">
             Загрузить в конфигуратор
           </button>
-          <button @click="togglePublish(currentConfig)" class="btn-publish" :class="{ 'published': currentConfig.isPublic }">
-            {{ currentConfig.isPublic ? 'Снять с публикации' : 'Опубликовать' }}
-          </button>
-          <button @click="confirmDelete(currentConfig.id)" class="btn-delete">
-            Удалить
-          </button>
           <button @click="showDetailsModal = false" class="btn-close-modal">
             Закрыть
-          </button>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Модальное окно подтверждения удаления -->
-    <div v-if="showDeleteModal" class="modal-overlay">
-      <div class="modal">
-        <div class="modal-header">
-          <h2>Подтверждение удаления</h2>
-          <button @click="showDeleteModal = false" class="btn-close">×</button>
-        </div>
-        
-        <div class="modal-content">
-          <p>Вы уверены, что хотите удалить конфигурацию?</p>
-          <p>Это действие нельзя отменить.</p>
-        </div>
-        
-        <div class="modal-actions">
-          <button @click="deleteConfiguration" class="btn-confirm-delete">
-            Удалить
-          </button>
-          <button @click="showDeleteModal = false" class="btn-cancel">
-            Отмена
           </button>
         </div>
       </div>
@@ -186,32 +137,108 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfiguratorStore } from '@/stores/configurator'
-import { useAuthStore } from '@/stores/auth'
+import apiClient from '@/api/apiClient'
 
 const router = useRouter()
 const configuratorStore = useConfiguratorStore()
-const authStore = useAuthStore()
 
 // Состояние компонента
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 const showDetailsModal = ref(false)
-const showDeleteModal = ref(false)
-const configIdToDelete = ref<number | null>(null)
+const publicConfigurations = ref<any[]>([])
+const currentConfig = ref<any>(null)
 const selectedCategory = ref('')
-const sortBy = ref('price_desc')
+const sortBy = ref('')
 
-// Получаем конфигурации из хранилища
-const configurations = computed(() => configuratorStore.getSavedConfigurations)
-const currentConfig = computed(() => configuratorStore.getCurrentConfiguration)
+// Загружаем публичные конфигурации при монтировании компонента
+onMounted(async () => {
+  await loadPublicConfigurations()
+})
+
+// Загрузка публичных конфигураций
+const loadPublicConfigurations = async () => {
+  isLoading.value = true
+  error.value = null
+  
+  try {
+    const response = await apiClient.get('/configurations/public')
+    publicConfigurations.value = response.data
+  } catch (err: any) {
+    console.error('Error loading public configurations:', err)
+    error.value = err.response?.data?.message || 'Ошибка при загрузке публичных конфигураций'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Форматирование цены
+const formatPrice = (price: number) => {
+  return price ? price.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ") : '0.00'
+}
+
+// Перевод типа компонента
+const translateComponentType = (type: string) => {
+  if (!type) {
+    return 'Неизвестный компонент'
+  }
+  
+  const translations: Record<string, string> = {
+    'CPU': 'Процессор',
+    'GPU': 'Видеокарта',
+    'RAM': 'Оперативная память',
+    'MB': 'Материнская плата',
+    'MOTHERBOARD': 'Материнская плата',
+    'STORAGE': 'Хранилище',
+    'PSU': 'Блок питания',
+    'CASE': 'Корпус',
+    'COOLER': 'Охлаждение'
+  }
+  
+  return translations[type] || type
+}
+
+// Просмотр деталей конфигурации
+const viewDetails = async (configId: number) => {
+  isLoading.value = true
+  try {
+    const response = await apiClient.get(`/configurations/${configId}`)
+    currentConfig.value = response.data
+    showDetailsModal.value = true
+  } catch (err: any) {
+    error.value = err.response?.data?.message || 'Ошибка при загрузке деталей конфигурации'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Загрузка конфигурации в конфигуратор
+const loadToConfigurator = async (configId?: number) => {
+  if (!configId) return
+  
+  isLoading.value = true
+  try {
+    const result = await configuratorStore.loadConfigurationToConfigurator(configId)
+    if (result) {
+      showDetailsModal.value = false
+      router.push('/configurator')
+    } else {
+      error.value = configuratorStore.getError || 'Ошибка при загрузке конфигурации'
+    }
+  } catch (err: any) {
+    error.value = err.message || 'Ошибка при загрузке конфигурации'
+  } finally {
+    isLoading.value = false
+  }
+}
 
 // Вычисляемое свойство для фильтрации и сортировки конфигураций
 const filteredConfigurations = computed(() => {
   // Фильтрация по категории
-  let filtered = [...configurations.value];
+  let filtered = [...publicConfigurations.value];
   
   if (selectedCategory.value) {
     filtered = filtered.filter(config => config.category === selectedCategory.value);
@@ -238,71 +265,8 @@ const filteredConfigurations = computed(() => {
   return filtered;
 });
 
-// Загружаем конфигурации при монтировании компонента
-onMounted(async () => {
-  if (!authStore.getIsAuthenticated) {
-    router.push('/login')
-    return
-  }
-  
-  isLoading.value = true
-  try {
-    await configuratorStore.getUserConfigurations()
-    error.value = configuratorStore.getError
-  } catch (err: any) {
-    error.value = err.message || 'Ошибка при загрузке конфигураций'
-  } finally {
-    isLoading.value = false
-  }
-})
-
-// Форматирование цены
-const formatPrice = (price: number) => {
-  return price.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ")
-}
-
-// Форматирование даты
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
-// Перевод типа компонента
-const translateComponentType = (type: string) => {
-  console.log('Translating component type:', type)
-  
-  if (!type) {
-    console.warn('Component type is undefined or null')
-    return 'Неизвестный компонент'
-  }
-  
-  const translations: Record<string, string> = {
-    'CPU': 'Процессор',
-    'GPU': 'Видеокарта',
-    'RAM': 'Оперативная память',
-    'MB': 'Материнская плата',
-    'MOTHERBOARD': 'Материнская плата',
-    'STORAGE': 'Хранилище',
-    'PSU': 'Блок питания',
-    'CASE': 'Корпус',
-    'COOLER': 'Охлаждение'
-  }
-  
-  const result = translations[type] || type
-  console.log('Translated to:', result)
-  return result
-}
-
 // Перевод категории
 const translateCategory = (category: string) => {
-  if (!category) return '';
-  
   const translations: Record<string, string> = {
     'BUDGET': 'Бюджетная',
     'GAMING': 'Игровая',
@@ -315,78 +279,10 @@ const translateCategory = (category: string) => {
   
   return translations[category] || category
 }
-
-// Просмотр деталей конфигурации
-const viewDetails = async (configId: number) => {
-  isLoading.value = true
-  try {
-    await configuratorStore.getConfigurationDetails(configId)
-    showDetailsModal.value = true
-  } catch (err: any) {
-    error.value = err.message || 'Ошибка при загрузке деталей конфигурации'
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// Загрузка конфигурации в конфигуратор
-const loadToConfigurator = async (configId?: number) => {
-  if (!configId) return
-  
-  isLoading.value = true
-  try {
-    const result = await configuratorStore.loadConfigurationToConfigurator(configId)
-    if (result) {
-      showDetailsModal.value = false
-      router.push('/configurator')
-    } else {
-      error.value = configuratorStore.getError || 'Ошибка при загрузке конфигурации'
-    }
-  } catch (err: any) {
-    error.value = err.message || 'Ошибка при загрузке конфигурации'
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// Подтверждение удаления
-const confirmDelete = (configId: number) => {
-  configIdToDelete.value = configId
-  showDeleteModal.value = true
-}
-
-// Удаление конфигурации
-const deleteConfiguration = async () => {
-  if (!configIdToDelete.value) return
-  
-  isLoading.value = true
-  try {
-    await configuratorStore.deleteConfiguration(configIdToDelete.value)
-    showDeleteModal.value = false
-  } catch (err: any) {
-    error.value = err.message || 'Ошибка при удалении конфигурации'
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// Переключение публикации конфигурации
-const togglePublish = async (config: any) => {
-  isLoading.value = true
-  try {
-    await configuratorStore.toggleConfigurationPublication(config.id)
-    // Обновляем конфигурации после изменения публикации
-    await configuratorStore.getUserConfigurations()
-  } catch (err: any) {
-    error.value = err.message || 'Ошибка при изменении публикации конфигурации'
-  } finally {
-    isLoading.value = false
-  }
-}
 </script>
 
 <style scoped>
-.user-configurations {
+.public-configurations {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
@@ -395,6 +291,26 @@ const togglePublish = async (config: any) => {
 h1 {
   margin-bottom: 2rem;
   text-align: center;
+}
+
+.filters {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+}
+
+.filter-group label {
+  margin-right: 0.5rem;
+}
+
+.filter-group select {
+  padding: 0.5rem;
 }
 
 .loading, .error, .empty-state {
@@ -408,17 +324,6 @@ h1 {
 .error {
   color: #721c24;
   background-color: #f8d7da;
-}
-
-.btn-create {
-  display: inline-block;
-  margin-top: 1rem;
-  padding: 0.75rem 1.5rem;
-  background-color: #3498db;
-  color: white;
-  text-decoration: none;
-  border-radius: 4px;
-  font-weight: bold;
 }
 
 .configurations-list {
@@ -458,16 +363,14 @@ h1 {
   margin-bottom: 1.5rem;
 }
 
-.config-date {
-  color: #666;
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
-}
-
 .config-category {
   color: #666;
   font-size: 0.9rem;
   margin-bottom: 0.5rem;
+  background-color: #e9ecef;
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
 }
 
 .config-compatibility {
@@ -476,6 +379,7 @@ h1 {
   border-radius: 4px;
   font-size: 0.9rem;
   margin-bottom: 0.5rem;
+  margin-right: 0.5rem;
 }
 
 .config-compatibility.compatible {
@@ -486,19 +390,6 @@ h1 {
 .config-compatibility.incompatible {
   background-color: #f8d7da;
   color: #721c24;
-}
-
-.config-publication {
-  display: inline-block;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
-}
-
-.config-publication.published {
-  background-color: #d4edda;
-  color: #155724;
 }
 
 .config-description {
@@ -529,20 +420,6 @@ h1 {
 
 .btn-load {
   background-color: #3498db;
-  color: white;
-}
-
-.btn-publish {
-  background-color: #2ecc71;
-  color: white;
-}
-
-.btn-publish.published {
-  background-color: #e74c3c;
-}
-
-.btn-delete {
-  background-color: #e74c3c;
   color: white;
 }
 
@@ -627,8 +504,7 @@ h1 {
 }
 
 .component-price {
-  font-size: 0.9rem;
-  color: #666;
+  font-weight: bold;
   margin-bottom: 0.25rem;
 }
 
@@ -647,12 +523,7 @@ h1 {
   cursor: pointer;
 }
 
-.btn-confirm-delete {
-  background-color: #e74c3c;
-  color: white;
-}
-
-.btn-cancel, .btn-close-modal {
+.btn-close-modal {
   background-color: #f1f1f1;
   border: 1px solid #ddd;
 }
@@ -665,27 +536,5 @@ h1 {
   .config-actions {
     flex-direction: column;
   }
-}
-
-.filters {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.filter-group {
-  display: flex;
-  align-items: center;
-}
-
-.filter-group label {
-  margin-right: 0.5rem;
-}
-
-.filter-group select {
-  padding: 0.5rem;
-  border-radius: 4px;
-  border: 1px solid #ddd;
 }
 </style> 

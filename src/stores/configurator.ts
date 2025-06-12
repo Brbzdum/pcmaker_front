@@ -165,10 +165,12 @@ export const useConfiguratorStore = defineStore('configurator', {
       return null
     },
     
-    async saveConfiguration(name: string, description: string = '') {
+    async saveConfiguration(name: string, description: string = '', category: string = '') {
       const componentIds = this.getSelectedComponentIds
       
-      console.log('Saving configuration with name:', name, 'description:', description)
+      console.log('Saving configuration with name:', name)
+      console.log('Description:', description)
+      console.log('Category:', category)
       console.log('Component IDs:', componentIds)
       
       if (componentIds.length === 0) {
@@ -200,6 +202,7 @@ export const useConfiguratorStore = defineStore('configurator', {
           userId: userId,
           name: name,
           description: description,
+          category: category,
           componentIds: componentIds
         }
         
@@ -326,7 +329,7 @@ export const useConfiguratorStore = defineStore('configurator', {
           type: product.componentType || 'UNKNOWN',
           price: product.price || 0,
           description: product.description || '',
-          manufacturer: product.manufacturer?.name || '',
+          manufacturer: product.manufacturer?.name || 'Неизвестный производитель',
           specifications: product.specifications || {}
         }
         
@@ -376,7 +379,7 @@ export const useConfiguratorStore = defineStore('configurator', {
                   type: component.type,
                   price: component.price || 0,
                   description: '',
-                  manufacturer: '',
+                  manufacturer: component.manufacturerName || 'Неизвестный производитель',
                   specifications: component.specs || {}
                 }
                 
@@ -536,6 +539,25 @@ export const useConfiguratorStore = defineStore('configurator', {
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to delete configuration'
         return false
+      } finally {
+        this.isLoading = false
+      }
+    },
+    
+    // Добавляем метод для публикации/снятия с публикации конфигурации
+    async toggleConfigurationPublication(configId: number) {
+      this.isLoading = true
+      this.error = null
+      
+      try {
+        console.log('Toggling configuration publication status for ID:', configId)
+        const response = await apiClient.post(`/configurations/${configId}/toggle-publication`, {})
+        console.log('Publication status toggled:', response.data)
+        return response.data
+      } catch (error: any) {
+        console.error('Error toggling configuration publication:', error)
+        this.error = error.response?.data?.message || 'Failed to toggle configuration publication'
+        throw new Error(this.error || 'Unknown error')
       } finally {
         this.isLoading = false
       }

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import UserConfigurationsView from '@/views/UserConfigurationsView.vue'
+import PublicConfigurationsView from '@/views/PublicConfigurationsView.vue'
 
 // Check if user is authenticated
 const isAuthenticated = () => {
@@ -83,6 +84,11 @@ const router = createRouter({
       name: 'my-configurations',
       component: UserConfigurationsView,
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/public-configurations',
+      name: 'public-configurations',
+      component: PublicConfigurationsView
     }
   ]
 })
