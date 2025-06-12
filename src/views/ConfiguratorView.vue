@@ -104,6 +104,13 @@
               >
                 Сохранить конфигурацию
               </button>
+              
+              <RouterLink 
+                to="/my-configurations" 
+                class="btn-my-configs"
+              >
+                Мои конфигурации
+              </RouterLink>
             </div>
           </div>
         </div>
@@ -112,16 +119,23 @@
       <!-- Save Configuration Modal -->
       <div v-if="showSaveModal" class="modal-overlay">
         <div class="modal">
-          <h3>Сохранить конфигурацию</h3>
+          <div class="modal-header">
+            <h3>Сохранить конфигурацию</h3>
+            <button @click="showSaveModal = false" class="btn-close">×</button>
+          </div>
           <div class="modal-content">
             <div class="form-group">
               <label for="config-name">Название конфигурации</label>
-              <input type="text" id="config-name" v-model="configName">
+              <input type="text" id="config-name" v-model="configName" placeholder="Введите название">
+            </div>
+            <div class="form-group">
+              <label for="config-description">Описание (необязательно)</label>
+              <textarea id="config-description" v-model="configDescription" placeholder="Введите описание" rows="3"></textarea>
             </div>
           </div>
           <div class="modal-actions">
             <button @click="showSaveModal = false" class="btn-cancel">Отмена</button>
-            <button @click="saveConfiguration" class="btn-save">Сохранить</button>
+            <button @click="saveConfiguration" class="btn-save" :disabled="!configName">Сохранить</button>
           </div>
         </div>
       </div>
@@ -151,6 +165,7 @@ const compatibilityStore = ref(useCompatibilityStore())
 
 const showSaveModal = ref(false)
 const configName = ref('')
+const configDescription = ref('')
 const componentManufacturers = ref<Record<string, string>>({})
 
 // Создаем локальные вычисляемые свойства для доступа к свойствам конфигуратора
@@ -276,15 +291,28 @@ const addToCart = async () => {
 const saveConfiguration = async () => {
   if (!configName.value) return
   
+  console.log('Saving configuration with name:', configName.value)
+  console.log('Description:', configDescription.value)
+  console.log('Component IDs:', configuratorStore.getSelectedComponentIds)
+  console.log('User:', authStore.getUser)
+  
   try {
-    const result = await configuratorStore.saveConfiguration(configName.value)
+    showSaveModal.value = false // Закрываем модальное окно сразу
+    const result = await configuratorStore.saveConfiguration(configName.value, configDescription.value)
+    console.log('Save result:', result)
     if (result) {
-      showSaveModal.value = false
       configName.value = ''
+      configDescription.value = ''
       alert('Конфигурация успешно сохранена!')
+    } else {
+      console.error('Failed to save configuration, result is falsy')
+      alert('Ошибка при сохранении конфигурации: ' + (configuratorStore.getError || 'Неизвестная ошибка'))
+      showSaveModal.value = true // Открываем модальное окно снова в случае ошибки
     }
   } catch (error) {
     console.error('Ошибка при сохранении конфигурации:', error)
+    alert('Ошибка при сохранении конфигурации: ' + (error.message || 'Неизвестная ошибка'))
+    showSaveModal.value = true // Открываем модальное окно снова в случае ошибки
   }
 }
 
@@ -588,6 +616,49 @@ h1 {
   border: 1px solid #ddd;
   border-radius: 4px;
   cursor: pointer;
+}
+
+.btn-my-configs {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  background-color: #9b59b6;
+  color: white;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: bold;
+  transition: background-color 0.3s;
+}
+
+.btn-my-configs:hover {
+  background-color: #8e44ad;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.modal-header h3 {
+  margin: 0;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  resize: vertical;
 }
 
 @media (max-width: 768px) {
