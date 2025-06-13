@@ -43,7 +43,7 @@
         <h3>Характеристики</h3>
         <div class="specs-table">
           <div v-for="(value, key) in component.specifications" :key="key" class="spec-row">
-            <div class="spec-name">{{ formatSpecName(key) }}</div>
+            <div class="spec-name">{{ formatSpecName(String(key)) }}</div>
             <div class="spec-value">{{ value }}</div>
           </div>
         </div>
@@ -169,8 +169,58 @@ const formatSpecName = (key: string): string => {
 }
 
 const addToConfigurator = (item: any) => {
-  configuratorStore.selectComponent(item.type, item)
-  router.push('/configurator')
+  try {
+    if (!item) {
+      console.error('Attempted to add undefined item to configurator');
+      return;
+    }
+    
+    // Определяем тип компонента
+    if (item.type && item.type !== null) {
+      // Это обычный компонент ПК
+      console.log(`Adding PC component of type: ${item.type}`);
+      configuratorStore.selectComponent(item.type, item);
+    } else if (item.categoryId) {
+      // Это периферия, определяем тип по ID категории
+      console.log(`Adding peripheral with categoryId: ${item.categoryId}`);
+      
+      // Карта соответствия ID категорий типам периферии
+      const categoryToType: Record<number, string> = {
+        38: 'monitor',   // Мониторы
+        39: 'keyboard',  // Клавиатуры
+        40: 'mouse',     // Мыши
+        41: 'headset',   // Гарнитуры
+        42: 'speakers',  // Колонки
+        43: 'mousepad',  // Коврики
+        44: 'microphone' // Микрофоны
+      };
+      
+      // Получаем тип периферии по ID категории
+      const peripheralType = categoryToType[item.categoryId];
+      
+      if (peripheralType) {
+        console.log(`Mapped categoryId ${item.categoryId} to peripheral type: ${peripheralType}`);
+        configuratorStore.addComponent(peripheralType, item);
+        
+        // Включаем режим полной сборки
+        if (!configuratorStore.getIsFullBuild) {
+          configuratorStore.toggleFullBuild();
+        }
+      } else {
+        console.error(`Unknown peripheral category ID: ${item.categoryId}`);
+        alert('Ошибка: неизвестный тип периферии');
+      }
+    } else {
+      console.error('Item has no type or categoryId', item);
+      alert('Ошибка: не удалось определить тип компонента');
+      return;
+    }
+    
+    router.push('/configurator');
+  } catch (error) {
+    console.error('Error adding to configurator:', error);
+    alert(`Ошибка при добавлении в конфигуратор: ${error}`);
+  }
 }
 
 const addToCart = async (component: any) => {

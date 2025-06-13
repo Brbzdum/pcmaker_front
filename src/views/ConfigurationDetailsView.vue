@@ -100,23 +100,22 @@ onMounted(async () => {
   }
 })
 
-const formatPrice = (price) => {
+const formatPrice = (price: number) => {
   return price.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ")
 }
 
-const translateComponentType = (type) => {
+const translateComponentType = (type: string) => {
   const translations = {
     'CPU': 'Процессор',
     'GPU': 'Видеокарта',
     'RAM': 'Оперативная память',
     'MB': 'Материнская плата',
-    'STORAGE': 'Хранилище',
+    'STORAGE': 'Накопитель',
     'PSU': 'Блок питания',
     'CASE': 'Корпус',
     'COOLER': 'Охлаждение'
   }
-  
-  return translations[type] || type
+  return translations[type as keyof typeof translations] || type
 }
 
 const loadToConfigurator = async () => {

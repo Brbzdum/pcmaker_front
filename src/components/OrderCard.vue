@@ -139,13 +139,8 @@ const statusClass = computed(() => {
 });
 
 // Форматирование цены
-const formatPrice = (price) => {
-  if (typeof price === 'number') {
-    return price.toFixed(2);
-  } else if (price && typeof price.toFixed === 'function') {
-    return price.toFixed(2);
-  }
-  return '0.00';
+const formatPrice = (price: number) => {
+  return price.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 };
 </script>
 

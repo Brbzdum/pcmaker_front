@@ -133,7 +133,7 @@ export const useOrderStore = defineStore('order', {
       this.error = null
 
       try {
-        const response = await apiClient.put(`/orders/${orderId}/cancel`)
+        const response = await apiClient.put(`/orders/${orderId}/cancel`, {})
         
         // Обновляем статус заказа в списке
         const orderIndex = this.orders.findIndex((order) => order.id === orderId)

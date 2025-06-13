@@ -102,7 +102,7 @@ export const useCartStore = defineStore('cart', {
         const userId = localStorage.getItem('user_id') || '1' // Временно используем 1, если ID не найден
         
         // Используем правильный URL и параметры запроса
-        const response = await apiClient.post(`/cart/items?userId=${userId}&productId=${productId}&quantity=${quantity}`)
+        const response = await apiClient.post(`/cart/items?userId=${userId}&productId=${productId}&quantity=${quantity}`, {})
         
         this.cart = response.data
         return true
@@ -126,7 +126,7 @@ export const useCartStore = defineStore('cart', {
 
       try {
         const userId = localStorage.getItem('user_id') || '1'
-        const response = await apiClient.put(`/cart/items/${productId}?userId=${userId}&quantity=${quantity}`)
+        const response = await apiClient.put(`/cart/items/${productId}?userId=${userId}&quantity=${quantity}`, {})
         
         this.cart = response.data
         return true

@@ -7,6 +7,8 @@ interface CategoryDto {
   description?: string
   parentId?: number
   isPcComponent?: boolean
+  isPeripheral?: boolean
+  slug?: string
   imageUrl?: string
 }
 
@@ -14,6 +16,7 @@ interface CategoryState {
   categories: CategoryDto[]
   rootCategories: CategoryDto[]
   pcComponentCategories: CategoryDto[]
+  peripheralCategories: CategoryDto[]
   categoryPath: Record<number, CategoryDto[]>
   subcategories: Record<number, CategoryDto[]>
   isLoading: boolean
@@ -25,6 +28,7 @@ export const useCategoryStore = defineStore('category', {
     categories: [],
     rootCategories: [],
     pcComponentCategories: [],
+    peripheralCategories: [],
     categoryPath: {},
     subcategories: {},
     isLoading: false,
@@ -33,11 +37,15 @@ export const useCategoryStore = defineStore('category', {
 
   getters: {
     getCategories: (state) => state.categories,
+    getAllCategories: (state) => state.categories,
     getRootCategories: (state) => state.rootCategories,
     getPcComponentCategories: (state) => state.pcComponentCategories,
+    getPeripheralCategories: (state) => state.peripheralCategories,
     getCategoryById: (state) => (id: number) => state.categories.find(c => c.id === id),
     getCategoryPath: (state) => (id: number) => state.categoryPath[id] || [],
     getSubcategories: (state) => (id: number) => state.subcategories[id] || [],
+    getCategoriesByParentId: (state) => (parentId: number) => 
+      state.categories.filter(c => c.parentId === parentId),
     getIsLoading: (state) => state.isLoading,
     getError: (state) => state.error
   },
@@ -213,6 +221,22 @@ export const useCategoryStore = defineStore('category', {
         return response.data
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to fetch category path'
+        return []
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    async fetchPeripheralCategories() {
+      this.isLoading = true
+      this.error = null
+
+      try {
+        const response = await apiClient.get('/categories/peripherals')
+        this.peripheralCategories = response.data
+        return response.data
+      } catch (error: any) {
+        this.error = error.response?.data?.message || 'Failed to fetch peripheral categories'
         return []
       } finally {
         this.isLoading = false
