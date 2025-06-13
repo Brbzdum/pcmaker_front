@@ -217,14 +217,16 @@
               </div>
             </div>
             
-            <div class="component-rating" v-if="component.rating && component.rating > 0">
-              <div class="stars">
-                <span v-for="i in 5" :key="i" class="star" :class="{ 'filled': i <= Math.round(component.rating || 0) }">★</span>
+            <div class="component-price">
+              <span class="price-value">{{ formatPrice(component.price) }} ₽</span>
+              <div class="price-rating" v-if="component.averageRating">
+                <span class="stars">
+                  <i class="fas fa-star" v-for="i in Math.floor(component.averageRating)" :key="'star-'+i"></i>
+                  <i class="fas fa-star-half-alt" v-if="component.averageRating % 1 >= 0.5"></i>
+                </span>
+                <span class="rating-value">{{ component.averageRating.toFixed(1) }}</span>
               </div>
-              <span class="rating-value">{{ (component.rating || 0).toFixed(1) }}</span>
             </div>
-            
-            <div class="component-price">{{ formatPrice(component.price) }} ₽</div>
             
             <div class="component-actions">
               <button class="btn-add" @click.prevent="addToConfigurator(component)">
@@ -358,40 +360,73 @@ const addToConfigurator = (component: any) => {
         // Для остальных типов используем selectComponent
         configuratorStore.selectComponent(component.type, component);
       }
-    } else if (component.categoryId) {
-      // Это периферия, определяем тип по ID категории
-      const categoryId = component.categoryId;
-      console.log(`Adding peripheral with categoryId: ${categoryId}`);
+    } else if (component.category) {
+      // Это может быть периферия, определяем тип
+      let peripheralType = null;
       
-      // Карта соответствия ID категорий типам периферии
-      const categoryToType: Record<number, string> = {
-        38: 'monitor',   // Мониторы
-        39: 'keyboard',  // Клавиатуры
-        40: 'mouse',     // Мыши
-        41: 'headset',   // Гарнитуры
-        42: 'speakers',  // Колонки
-        43: 'mousepad',  // Коврики
-        44: 'microphone' // Микрофоны
-      };
+      // Проверяем разные варианты структуры данных
+      if (typeof component.category === 'object' && component.category.isPeripheral) {
+        // Вариант 1: category - это объект с полем isPeripheral и slug
+        const categorySlug = component.category.slug;
+        console.log(`Case 1: Adding peripheral with category slug: ${categorySlug}`);
+        
+        if (categorySlug) {
+          const slug = categorySlug.toLowerCase();
+          // Маппинг slug'ов к типам периферии
+          if (slug === 'monitors' || slug === 'monitor') peripheralType = 'monitor';
+          else if (slug === 'keyboards' || slug === 'keyboard') peripheralType = 'keyboard';
+          else if (slug === 'mice' || slug === 'mouse') peripheralType = 'mouse';
+          else if (slug === 'headsets' || slug === 'headset' || slug === 'headphones') peripheralType = 'headset';
+          else if (slug === 'speakers' || slug === 'speaker') peripheralType = 'speakers';
+          else if (slug === 'mousepads' || slug === 'mousepad') peripheralType = 'mousepad';
+          else if (slug === 'microphones' || slug === 'microphone') peripheralType = 'microphone';
+          else peripheralType = slug; // Используем slug как тип по умолчанию
+        }
+      } else if (typeof component.category === 'string') {
+        // Вариант 2: category - это строка с названием категории
+        console.log(`Case 2: Adding peripheral with category name: ${component.category}`);
+        const categoryName = component.category.toLowerCase();
+        
+        // Маппинг названий категорий к типам периферии
+        if (categoryName.includes('монитор')) peripheralType = 'monitor';
+        else if (categoryName.includes('клавиатур')) peripheralType = 'keyboard';
+        else if (categoryName.includes('мыш')) peripheralType = 'mouse';
+        else if (categoryName.includes('наушник') || categoryName.includes('гарнитур')) peripheralType = 'headset';
+        else if (categoryName.includes('колонк') || categoryName.includes('акустик')) peripheralType = 'speakers';
+        else if (categoryName.includes('коврик')) peripheralType = 'mousepad';
+        else if (categoryName.includes('микрофон')) peripheralType = 'microphone';
+      }
       
-      // Получаем тип периферии по ID категории
-      const peripheralType = categoryToType[categoryId];
+      // Если не определили по названию, попробуем по ID категории
+      if (!peripheralType && component.categoryId) {
+        console.log(`Case 3: Adding peripheral with category ID: ${component.categoryId}`);
+        // Маппинг ID категорий к типам периферии
+        switch (component.categoryId) {
+          case 38: peripheralType = 'monitor'; break;
+          case 39: peripheralType = 'keyboard'; break;
+          case 40: peripheralType = 'mouse'; break;
+          case 41: case 49: peripheralType = 'headset'; break;
+          case 42: peripheralType = 'speakers'; break;
+          case 43: case 50: peripheralType = 'mousepad'; break;
+          case 44: case 51: peripheralType = 'microphone'; break;
+        }
+      }
       
       if (peripheralType) {
-        console.log(`Mapped categoryId ${categoryId} to peripheral type: ${peripheralType}`);
+        console.log(`Mapped to peripheral type: ${peripheralType}`);
         configuratorStore.addComponent(peripheralType, component);
         
         // Включаем режим полной сборки
-        if (!configuratorStore.getIsFullBuild) {
+      if (!configuratorStore.getIsFullBuild) {
           configuratorStore.toggleFullBuild();
         }
       } else {
-        console.error(`Unknown peripheral category ID: ${categoryId}`);
+        console.error(`Unknown peripheral category: ${component.category}`, component);
         alert('Ошибка: неизвестный тип периферии');
         return;
       }
     } else {
-      console.error('Component has no valid type or category ID', component);
+      console.error('Component has no valid type or category information', component);
       alert('Ошибка: неизвестный тип компонента');
       return;
     }
@@ -590,6 +625,23 @@ const getManufacturerName = (component: any) => {
 const formatPrice = (price: number) => {
   return price.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ")
 }
+
+// Функция для получения верхних спецификаций
+const getTopSpecs = (specs: any) => {
+  const topSpecs = {};
+  for (const key in specs) {
+    if (typeof specs[key] === 'string' || typeof specs[key] === 'number') {
+      topSpecs[key] = specs[key];
+    }
+  }
+  return topSpecs;
+}
+
+// Функция для форматирования имени спецификации
+const formatSpecName = (key: string) => {
+  const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  return formattedKey.charAt(0).toUpperCase() + formattedKey.slice(1);
+}
 </script>
 
 <style scoped>
@@ -752,21 +804,6 @@ h1 {
 
 .component-manufacturer {
   font-style: italic;
-}
-
-.component-rating {
-  display: flex;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.stars {
-  color: #ccc;
-  margin-right: 0.5rem;
-}
-
-.star.filled {
-  color: #f39c12;
 }
 
 .component-price {

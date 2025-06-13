@@ -95,7 +95,7 @@ export const useCatalogStore = defineStore('catalog', {
           }
           
           return {
-            ...component,
+          ...component,
             isPeripheral
           };
         })

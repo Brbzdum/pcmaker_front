@@ -39,9 +39,108 @@
         </div>
       </div>
       
-      <div class="item-specs" v-if="component.specifications">
+      <div class="item-specs" v-if="component.specifications || component.specs">
         <h3>Характеристики</h3>
-        <div class="specs-table">
+        
+        <!-- Для периферии (поле specs) -->
+        <div v-if="component.specs" class="specs-table">
+          <!-- Ключевые характеристики для разных типов периферии -->
+          <div class="key-specs" v-if="isPeripheral">
+            <h4>Ключевые характеристики</h4>
+            <!-- Мышь -->
+            <div v-if="component.category === 'Мыши' || (component.category && component.category.name === 'Мыши')" class="key-specs-grid">
+              <div v-if="hasSpec('dpi')" class="key-spec-item">
+                <div class="key-spec-name">DPI</div>
+                <div class="key-spec-value">{{ getSpec('dpi') }}</div>
+              </div>
+              <div v-if="hasSpec('sensor')" class="key-spec-item">
+                <div class="key-spec-name">Сенсор</div>
+                <div class="key-spec-value">{{ getSpec('sensor') }}</div>
+              </div>
+              <div v-if="hasSpec('connection')" class="key-spec-item">
+                <div class="key-spec-name">Подключение</div>
+                <div class="key-spec-value">{{ getSpec('connection') }}</div>
+              </div>
+              <div v-if="hasSpec('weight')" class="key-spec-item">
+                <div class="key-spec-name">Вес</div>
+                <div class="key-spec-value">{{ getSpec('weight') }} г</div>
+              </div>
+            </div>
+            
+            <!-- Клавиатура -->
+            <div v-else-if="component.category === 'Клавиатуры' || (component.category && component.category.name === 'Клавиатуры')" class="key-specs-grid">
+              <div v-if="hasSpec('switch_type') || hasSpec('switches')" class="key-spec-item">
+                <div class="key-spec-name">Переключатели</div>
+                <div class="key-spec-value">{{ getSpec('switch_type') || getSpec('switches') }}</div>
+              </div>
+              <div v-if="hasSpec('layout')" class="key-spec-item">
+                <div class="key-spec-name">Раскладка</div>
+                <div class="key-spec-value">{{ getSpec('layout') }}</div>
+              </div>
+              <div v-if="hasSpec('connection')" class="key-spec-item">
+                <div class="key-spec-name">Подключение</div>
+                <div class="key-spec-value">{{ getSpec('connection') }}</div>
+              </div>
+              <div v-if="hasSpec('rgb')" class="key-spec-item">
+                <div class="key-spec-name">Подсветка</div>
+                <div class="key-spec-value">{{ getSpec('rgb') }}</div>
+              </div>
+            </div>
+            
+            <!-- Наушники -->
+            <div v-else-if="component.category === 'Наушники' || (component.category && component.category.name === 'Наушники') || 
+                          component.category === 'Гарнитуры' || (component.category && component.category.name === 'Гарнитуры')" class="key-specs-grid">
+              <div v-if="hasSpec('driver_size')" class="key-spec-item">
+                <div class="key-spec-name">Динамики</div>
+                <div class="key-spec-value">{{ getSpec('driver_size') }}</div>
+              </div>
+              <div v-if="hasSpec('frequency_response')" class="key-spec-item">
+                <div class="key-spec-name">Частотный диапазон</div>
+                <div class="key-spec-value">{{ getSpec('frequency_response') }}</div>
+              </div>
+              <div v-if="hasSpec('connection')" class="key-spec-item">
+                <div class="key-spec-name">Подключение</div>
+                <div class="key-spec-value">{{ getSpec('connection') }}</div>
+              </div>
+              <div v-if="hasSpec('microphone')" class="key-spec-item">
+                <div class="key-spec-name">Микрофон</div>
+                <div class="key-spec-value">{{ getSpec('microphone') }}</div>
+              </div>
+            </div>
+            
+            <!-- Мониторы -->
+            <div v-else-if="component.category === 'Мониторы' || (component.category && component.category.name === 'Мониторы')" class="key-specs-grid">
+              <div v-if="hasSpec('resolution')" class="key-spec-item">
+                <div class="key-spec-name">Разрешение</div>
+                <div class="key-spec-value">{{ getSpec('resolution') }}</div>
+              </div>
+              <div v-if="hasSpec('refresh_rate')" class="key-spec-item">
+                <div class="key-spec-name">Частота обновления</div>
+                <div class="key-spec-value">{{ getSpec('refresh_rate') }} Гц</div>
+              </div>
+              <div v-if="hasSpec('panel_type')" class="key-spec-item">
+                <div class="key-spec-name">Тип панели</div>
+                <div class="key-spec-value">{{ getSpec('panel_type') }}</div>
+              </div>
+              <div v-if="hasSpec('response_time')" class="key-spec-item">
+                <div class="key-spec-name">Время отклика</div>
+                <div class="key-spec-value">{{ getSpec('response_time') }}</div>
+              </div>
+            </div>
+          </div>
+          
+          <h4>Все характеристики</h4>
+          <!-- Используем метод getAllSpecs для отображения всех характеристик -->
+          <template v-for="(spec, index) in getAllSpecs()" :key="index">
+            <div class="spec-row">
+              <div class="spec-name">{{ formatSpecName(spec.key) }}</div>
+              <div class="spec-value">{{ spec.value }}</div>
+            </div>
+          </template>
+        </div>
+        
+        <!-- Для компонентов ПК (поле specifications) -->
+        <div v-else-if="component.specifications" class="specs-table">
           <div v-for="(value, key) in component.specifications" :key="key" class="spec-row">
             <div class="spec-name">{{ formatSpecName(String(key)) }}</div>
             <div class="spec-value">{{ value }}</div>
@@ -112,7 +211,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCatalogStore } from '@/stores/catalog'
 import { useConfiguratorStore } from '@/stores/configurator'
@@ -142,6 +241,41 @@ const reportReason = ref('')
 const reportingReviewId = ref<number | null>(null)
 const isReporting = ref(false)
 
+// Вычисляемое свойство для определения, является ли товар периферией
+const isPeripheral = computed(() => {
+  if (!component.value) return false;
+  
+  // Проверяем разные варианты структуры данных
+  if (component.value.category) {
+    if (typeof component.value.category === 'object' && component.value.category.isPeripheral) {
+      return true;
+    }
+    
+    // Проверяем по названию категории
+    if (typeof component.value.category === 'string') {
+      const categoryName = component.value.category.toLowerCase();
+      return (
+        categoryName.includes('мыш') || 
+        categoryName.includes('клавиатур') || 
+        categoryName.includes('наушник') || 
+        categoryName.includes('гарнитур') || 
+        categoryName.includes('монитор') || 
+        categoryName.includes('колонк') || 
+        categoryName.includes('коврик') || 
+        categoryName.includes('микрофон')
+      );
+    }
+  }
+  
+  // Проверяем по ID категории
+  if (component.value.categoryId) {
+    const peripheralCategoryIds = [38, 39, 40, 41, 42, 43, 44, 49, 50, 51];
+    return peripheralCategoryIds.includes(component.value.categoryId);
+  }
+  
+  return false;
+})
+
 onMounted(async () => {
   const id = Number(route.params.id)
   
@@ -149,6 +283,8 @@ onMounted(async () => {
     // Загружаем данные о товаре
     const product = await catalogStore.fetchComponentById(id)
     if (product) {
+      // Обрабатываем спецификации перед установкой
+      processComponentSpecs(product);
       component.value = product
       
       // Загружаем рейтинг товара
@@ -160,6 +296,55 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+// Функция для обработки спецификаций компонента
+const processComponentSpecs = (product: any) => {
+  if (!product) return;
+  
+  try {
+    // Проверяем наличие specsAsString и пытаемся использовать его
+    if (product.specsAsString) {
+      try {
+        product.specs = JSON.parse(product.specsAsString);
+        console.log('Successfully parsed specs from specsAsString:', product.specs);
+        return;
+      } catch (e) {
+        console.error('Error parsing specsAsString:', e);
+      }
+    }
+    
+    // Проверяем, является ли specs объектом с одним ключом, который выглядит как JSON
+    if (product.specs && typeof product.specs === 'object') {
+      const keys = Object.keys(product.specs);
+      if (keys.length === 1 && keys[0].startsWith('{')) {
+        const specsKey = keys[0];
+        const specsValue = product.specs[specsKey];
+        
+        // Пытаемся восстановить корректный JSON
+        try {
+          // Собираем JSON из ключа и значения
+          let jsonStr = specsKey;
+          if (!jsonStr.endsWith('}')) {
+            jsonStr += specsValue;
+          }
+          
+          // Очищаем возможные проблемы форматирования
+          jsonStr = jsonStr.replace(/^{"|^{/, '{').replace(/}$/, '}');
+          
+          const parsedSpecs = JSON.parse(jsonStr);
+          console.log('Fixed malformed specs object:', parsedSpecs);
+          
+          // Заменяем некорректный объект specs на правильный
+          product.specs = parsedSpecs;
+        } catch (e) {
+          console.error('Failed to fix malformed specs object:', e);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error in processComponentSpecs:', error);
+  }
+};
 
 const formatSpecName = (key: string): string => {
   // Convert camelCase to Title Case with spaces
@@ -180,26 +365,60 @@ const addToConfigurator = (item: any) => {
       // Это обычный компонент ПК
       console.log(`Adding PC component of type: ${item.type}`);
       configuratorStore.selectComponent(item.type, item);
-    } else if (item.categoryId) {
-      // Это периферия, определяем тип по ID категории
-      console.log(`Adding peripheral with categoryId: ${item.categoryId}`);
+    } else if (item.category) {
+      // Это может быть периферия, определяем тип
+      let peripheralType = null;
       
-      // Карта соответствия ID категорий типам периферии
-      const categoryToType: Record<number, string> = {
-        38: 'monitor',   // Мониторы
-        39: 'keyboard',  // Клавиатуры
-        40: 'mouse',     // Мыши
-        41: 'headset',   // Гарнитуры
-        42: 'speakers',  // Колонки
-        43: 'mousepad',  // Коврики
-        44: 'microphone' // Микрофоны
-      };
+      // Проверяем разные варианты структуры данных
+      if (typeof item.category === 'object' && item.category.isPeripheral) {
+        // Вариант 1: category - это объект с полем isPeripheral и slug
+        const categorySlug = item.category.slug;
+        console.log(`Case 1: Adding peripheral with category slug: ${categorySlug}`);
+        
+        if (categorySlug) {
+          const slug = categorySlug.toLowerCase();
+          // Маппинг slug'ов к типам периферии
+          if (slug === 'monitors' || slug === 'monitor') peripheralType = 'monitor';
+          else if (slug === 'keyboards' || slug === 'keyboard') peripheralType = 'keyboard';
+          else if (slug === 'mice' || slug === 'mouse') peripheralType = 'mouse';
+          else if (slug === 'headsets' || slug === 'headset' || slug === 'headphones') peripheralType = 'headset';
+          else if (slug === 'speakers' || slug === 'speaker') peripheralType = 'speakers';
+          else if (slug === 'mousepads' || slug === 'mousepad') peripheralType = 'mousepad';
+          else if (slug === 'microphones' || slug === 'microphone') peripheralType = 'microphone';
+          else peripheralType = slug; // Используем slug как тип по умолчанию
+        }
+      } else if (typeof item.category === 'string') {
+        // Вариант 2: category - это строка с названием категории
+        console.log(`Case 2: Adding peripheral with category name: ${item.category}`);
+        const categoryName = item.category.toLowerCase();
+        
+        // Маппинг названий категорий к типам периферии
+        if (categoryName.includes('монитор')) peripheralType = 'monitor';
+        else if (categoryName.includes('клавиатур')) peripheralType = 'keyboard';
+        else if (categoryName.includes('мыш')) peripheralType = 'mouse';
+        else if (categoryName.includes('наушник') || categoryName.includes('гарнитур')) peripheralType = 'headset';
+        else if (categoryName.includes('колонк') || categoryName.includes('акустик')) peripheralType = 'speakers';
+        else if (categoryName.includes('коврик')) peripheralType = 'mousepad';
+        else if (categoryName.includes('микрофон')) peripheralType = 'microphone';
+      }
       
-      // Получаем тип периферии по ID категории
-      const peripheralType = categoryToType[item.categoryId];
+      // Если не определили по названию, попробуем по ID категории
+      if (!peripheralType && item.categoryId) {
+        console.log(`Case 3: Adding peripheral with category ID: ${item.categoryId}`);
+        // Маппинг ID категорий к типам периферии
+        switch (item.categoryId) {
+          case 38: peripheralType = 'monitor'; break;
+          case 39: peripheralType = 'keyboard'; break;
+          case 40: peripheralType = 'mouse'; break;
+          case 41: case 49: peripheralType = 'headset'; break;
+          case 42: peripheralType = 'speakers'; break;
+          case 43: case 50: peripheralType = 'mousepad'; break;
+          case 44: case 51: peripheralType = 'microphone'; break;
+        }
+      }
       
       if (peripheralType) {
-        console.log(`Mapped categoryId ${item.categoryId} to peripheral type: ${peripheralType}`);
+        console.log(`Mapped to peripheral type: ${peripheralType}`);
         configuratorStore.addComponent(peripheralType, item);
         
         // Включаем режим полной сборки
@@ -207,18 +426,20 @@ const addToConfigurator = (item: any) => {
           configuratorStore.toggleFullBuild();
         }
       } else {
-        console.error(`Unknown peripheral category ID: ${item.categoryId}`);
+        console.error(`Unknown peripheral category: ${item.category}`, item);
         alert('Ошибка: неизвестный тип периферии');
+        return;
       }
     } else {
-      console.error('Item has no type or categoryId', item);
-      alert('Ошибка: не удалось определить тип компонента');
+      console.error('Item has no valid type or category information', item);
+      alert('Ошибка: неизвестный тип компонента');
       return;
     }
     
+    // Переходим на страницу конфигуратора после успешного добавления
     router.push('/configurator');
   } catch (error) {
-    console.error('Error adding to configurator:', error);
+    console.error('Ошибка при добавлении в конфигуратор:', error);
     alert(`Ошибка при добавлении в конфигуратор: ${error}`);
   }
 }
@@ -296,6 +517,134 @@ const submitReport = async () => {
   } finally {
     isReporting.value = false
   }
+}
+
+// Методы для работы со спецификациями
+const hasSpec = (key: string): boolean => {
+  if (!component.value) return false;
+  
+  // Если specs корректно сформирован как объект
+  if (component.value.specs && typeof component.value.specs === 'object' && component.value.specs[key] !== undefined) {
+    return true;
+  }
+  
+  // Если specs некорректно сформирован, пробуем использовать specsAsString
+  if (component.value.specsAsString) {
+    try {
+      const parsedSpecs = JSON.parse(component.value.specsAsString);
+      return parsedSpecs[key] !== undefined;
+    } catch (e) {
+      console.error('Error parsing specsAsString:', e);
+    }
+  }
+  
+  // Проверяем, не является ли specs объектом с одним ключом, содержащим JSON строку
+  if (component.value.specs && Object.keys(component.value.specs).length === 1) {
+    try {
+      // Пытаемся распарсить весь объект specs как JSON
+      const specsKey = Object.keys(component.value.specs)[0];
+      const specsValue = component.value.specs[specsKey];
+      
+      // Пробуем собрать корректный JSON
+      const jsonStr = specsKey.startsWith('{') && !specsKey.endsWith('}') ? 
+        specsKey + specsValue : 
+        JSON.stringify(component.value.specs);
+      
+      const parsedSpecs = JSON.parse(jsonStr.replace(/^{"|^{/, '{').replace(/}$/, '}'));
+      return parsedSpecs[key] !== undefined;
+    } catch (e) {
+      console.error('Error parsing malformed specs object:', e);
+    }
+  }
+  
+  return false;
+}
+
+const getSpec = (key: string): string => {
+  if (!component.value) return '';
+  
+  // Если specs корректно сформирован как объект
+  if (component.value.specs && typeof component.value.specs === 'object' && component.value.specs[key] !== undefined) {
+    return component.value.specs[key];
+  }
+  
+  // Если specs некорректно сформирован, пробуем использовать specsAsString
+  if (component.value.specsAsString) {
+    try {
+      const parsedSpecs = JSON.parse(component.value.specsAsString);
+      return parsedSpecs[key] || '';
+    } catch (e) {
+      console.error('Error parsing specsAsString:', e);
+    }
+  }
+  
+  // Проверяем, не является ли specs объектом с одним ключом, содержащим JSON строку
+  if (component.value.specs && Object.keys(component.value.specs).length === 1) {
+    try {
+      // Пытаемся распарсить весь объект specs как JSON
+      const specsKey = Object.keys(component.value.specs)[0];
+      const specsValue = component.value.specs[specsKey];
+      
+      // Пробуем собрать корректный JSON
+      const jsonStr = specsKey.startsWith('{') && !specsKey.endsWith('}') ? 
+        specsKey + specsValue : 
+        JSON.stringify(component.value.specs);
+      
+      const parsedSpecs = JSON.parse(jsonStr.replace(/^{"|^{/, '{').replace(/}$/, '}'));
+      return parsedSpecs[key] || '';
+    } catch (e) {
+      console.error('Error parsing malformed specs object:', e);
+    }
+  }
+  
+  return '';
+}
+
+// Метод для получения всех спецификаций
+const getAllSpecs = () => {
+  if (!component.value) return [];
+  
+  // Если specs уже корректно сформирован
+  if (component.value.specs && typeof component.value.specs === 'object' && !Object.keys(component.value.specs)[0]?.startsWith('{')) {
+    return Object.entries(component.value.specs).map(([key, value]) => ({ key, value }));
+  }
+  
+  // Пытаемся получить спецификации из specsAsString
+  if (component.value.specsAsString) {
+    try {
+      const parsedSpecs = JSON.parse(component.value.specsAsString);
+      return Object.entries(parsedSpecs).map(([key, value]) => ({ key, value }));
+    } catch (e) {
+      console.error('Error parsing specsAsString in getAllSpecs:', e);
+    }
+  }
+  
+  // Пытаемся восстановить из некорректного объекта specs
+  if (component.value.specs && Object.keys(component.value.specs).length === 1) {
+    try {
+      const specsKey = Object.keys(component.value.specs)[0];
+      if (specsKey.startsWith('{')) {
+        const specsValue = component.value.specs[specsKey];
+        
+        // Собираем JSON из ключа и значения
+        let jsonStr = specsKey;
+        if (!jsonStr.endsWith('}')) {
+          jsonStr += specsValue;
+        }
+        
+        // Очищаем возможные проблемы форматирования
+        jsonStr = jsonStr.replace(/^{"|^{/, '{').replace(/}$/, '}');
+        
+        const parsedSpecs = JSON.parse(jsonStr);
+        return Object.entries(parsedSpecs).map(([key, value]) => ({ key, value }));
+      }
+    } catch (e) {
+      console.error('Error parsing malformed specs in getAllSpecs:', e);
+    }
+  }
+  
+  // Если все методы не сработали, возвращаем пустой массив
+  return [];
 }
 </script>
 
@@ -470,6 +819,39 @@ h1 {
 
 .spec-value {
   color: var(--text-secondary-color, #666);
+}
+
+.key-specs {
+  margin-bottom: 2rem;
+}
+
+.key-specs h4 {
+  margin-bottom: 1rem;
+  color: var(--primary-color, #3498db);
+}
+
+.key-specs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.key-spec-item {
+  background-color: var(--surface-color-light, #f8f9fa);
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.key-spec-name {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: var(--text-color, #333);
+}
+
+.key-spec-value {
+  color: var(--primary-color, #3498db);
+  font-size: 1.1rem;
 }
 
 .reviews-section {
