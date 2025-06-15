@@ -14,9 +14,6 @@
       <div v-else class="profile-content">
         <div class="profile-sidebar">
           <div class="user-info">
-            <div class="user-avatar">
-              <img src="https://via.placeholder.com/100" alt="Аватар пользователя">
-            </div>
             <h2>{{ user.username }}</h2>
             <p>{{ user.email }}</p>
           </div>
@@ -96,11 +93,16 @@
                 
                 <div class="config-components">
                   <div 
-                    v-for="componentId in config.components.slice(0, 3)" 
-                    :key="componentId"
+                    v-for="(componentId, index) in config.components.slice(0, 3)" 
+                    :key="`${config.id}-${componentId}-${index}`"
                     class="config-component"
                   >
-                    {{ getComponentName(componentId) }}
+                    <div class="component-name-placeholder" v-if="!componentNameCache[componentId]">
+                      Загрузка...
+                    </div>
+                    <div v-else>
+                      {{ componentNameCache[componentId] }}
+                    </div>
                   </div>
                   
                   <div v-if="config.components.length > 3" class="config-more">
@@ -287,6 +289,9 @@ const passwordError = computed(() => {
   return ''
 })
 
+// Кэш для имен компонентов
+const componentNameCache = ref<Record<number, string>>({});
+
 onMounted(async () => {
   if (authStore.getIsAuthenticated) {
     isLoading.value = true
@@ -307,15 +312,58 @@ const fetchUserProfile = async () => {
         id: userData.id,
         username: userData.username,
         email: userData.email,
-        savedConfigurations: userData.savedConfigurations || []
+        savedConfigurations: [] // Инициализируем пустым массивом
       }
       
       // Заполняем форму профиля
       profileForm.value.username = userData.username
       profileForm.value.email = userData.email
+      
+      // Загружаем сохраненные конфигурации пользователя
+      await fetchUserConfigurations()
     }
   } catch (err: any) {
     error.value = err.message || 'Ошибка при загрузке данных профиля'
+  }
+}
+
+// Предзагрузка имен компонентов для всех конфигураций
+const preloadComponentNames = async () => {
+  if (!user.value.savedConfigurations || user.value.savedConfigurations.length === 0) {
+    return;
+  }
+  
+  // Собираем все уникальные ID компонентов
+  const componentIds = new Set<number>();
+  user.value.savedConfigurations.forEach(config => {
+    config.components.forEach((id: number) => {
+      componentIds.add(id);
+    });
+  });
+  
+  // Загружаем имена компонентов
+  const promises = Array.from(componentIds).map(id => getComponentName(id));
+  await Promise.all(promises);
+}
+
+// Обновляем fetchUserConfigurations
+const fetchUserConfigurations = async () => {
+  try {
+    const configs = await configuratorStore.getUserConfigurations()
+    if (configs && Array.isArray(configs)) {
+      // Преобразуем конфигурации в нужный формат
+      user.value.savedConfigurations = configs.map(config => ({
+        id: config.id,
+        name: config.name || `Конфигурация #${config.id}`,
+        date: formatDate(config.createdAt),
+        components: config.components ? config.components.map((comp: any) => comp.productId || comp.id) : []
+      }))
+      
+      // Предзагружаем имена компонентов
+      await preloadComponentNames();
+    }
+  } catch (err) {
+    console.error('Ошибка при загрузке конфигураций:', err)
   }
 }
 
@@ -438,29 +486,40 @@ const logout = () => {
 }
 
 // Получение имени компонента по ID
-const getComponentName = (componentId: number) => {
-  const component = components.find(c => c.id === componentId)
-  return component ? component.name : 'Неизвестный компонент'
+const getComponentName = async (componentId: number) => {
+  // Проверяем кэш
+  if (componentNameCache.value[componentId]) {
+    return componentNameCache.value[componentId];
+  }
+  
+  try {
+    // Загружаем информацию о компоненте
+    const component = await configuratorStore.fetchProductById(componentId);
+    if (component) {
+      // Сохраняем в кэш и возвращаем
+      componentNameCache.value[componentId] = component.name;
+      return component.name;
+    }
+  } catch (error) {
+    console.error('Ошибка при получении информации о компоненте:', error);
+  }
+  
+  // Если не удалось получить имя, возвращаем заглушку
+  return 'Компонент #' + componentId;
 }
 
 // Загрузка конфигурации в конфигуратор
 const loadConfiguration = (config: Configuration) => {
-  // Очищаем текущую конфигурацию
-  if (typeof configuratorStore.saveConfiguration === 'function') {
-    // Сначала очистим конфигурацию, создав пустую конфигурацию с временным именем
-    configuratorStore.saveConfiguration('temp_empty_config')
-  
-    // Добавляем компоненты из сохраненной конфигурации
-    config.components.forEach((componentId: number) => {
-      const component = components.find(c => c.id === componentId)
-      if (component) {
-        configuratorStore.selectComponent(component.type, component)
-      }
+  // Загружаем конфигурацию по её ID
+  configuratorStore.loadConfigurationToConfigurator(config.id)
+    .then(() => {
+      // Переходим в конфигуратор
+      router.push('/configurator');
     })
-  }
-  
-  // Переходим в конфигуратор
-  router.push('/configurator')
+    .catch(error => {
+      console.error('Ошибка при загрузке конфигурации:', error);
+      alert('Не удалось загрузить конфигурацию. Попробуйте позже.');
+    });
 }
 
 // Получение класса для статуса заказа
@@ -511,31 +570,19 @@ h1 {
 }
 
 .user-info {
-  background-color: white;
-  border-radius: 8px;
   padding: 1.5rem;
   text-align: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  margin-bottom: 1.5rem;
-}
-
-.user-avatar {
-  margin-bottom: 1rem;
-}
-
-.user-avatar img {
-  border-radius: 50%;
-  width: 100px;
-  height: 100px;
+  border-bottom: 1px solid #eee;
 }
 
 .user-info h2 {
-  margin: 0 0 0.5rem 0;
+  margin: 0.5rem 0;
+  font-size: 1.5rem;
 }
 
 .user-info p {
+  margin: 0.5rem 0;
   color: #666;
-  margin: 0;
 }
 
 .profile-nav {
@@ -702,8 +749,17 @@ h1 {
   padding: 1rem;
 }
 
+.component-name-placeholder {
+  color: #999;
+  font-style: italic;
+}
+
 .config-component {
   margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  font-size: 0.9rem;
 }
 
 .config-more {

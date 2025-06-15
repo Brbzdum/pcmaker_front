@@ -150,6 +150,23 @@
             </div>
           </div>
           
+          <div class="form-group checkbox-group">
+            <input 
+              type="checkbox" 
+              id="data-consent" 
+              v-model="registerForm.dataProcessingConsent"
+              required
+              :disabled="authStore.getIsLoading"
+              @change="validateConsent"
+            >
+            <label for="data-consent" class="consent-label">
+              Я согласен на обработку персональных данных в соответствии с <a href="#" @click.prevent="showPrivacyPolicy">политикой конфиденциальности</a>
+            </label>
+            <div v-if="validationErrors.dataProcessingConsent" class="validation-error">
+              {{ validationErrors.dataProcessingConsent }}
+            </div>
+          </div>
+          
           <button 
             type="submit" 
             class="btn-submit"
@@ -186,7 +203,8 @@ const registerForm = ref({
   name: '',
   email: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  dataProcessingConsent: false
 })
 
 // Объект для хранения ошибок валидации
@@ -195,7 +213,8 @@ const validationErrors = ref({
   name: '',
   email: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  dataProcessingConsent: ''
 })
 
 // Проверяем длину пароля
@@ -277,6 +296,15 @@ const validateConfirmPassword = () => {
   }
 }
 
+// Валидация согласия на обработку персональных данных
+const validateConsent = () => {
+  if (!registerForm.value.dataProcessingConsent) {
+    validationErrors.value.dataProcessingConsent = 'Необходимо согласие на обработку персональных данных'
+  } else {
+    validationErrors.value.dataProcessingConsent = ''
+  }
+}
+
 // Check if user came from a protected route and set a redirect
 const redirectPath = computed(() => route.query.redirect as string || '/')
 
@@ -305,6 +333,7 @@ const handleRegister = async () => {
   validateEmail()
   validatePassword()
   validateConfirmPassword()
+  validateConsent()
   
   // Проверяем наличие ошибок валидации
   if (hasValidationErrors.value) return
@@ -313,7 +342,8 @@ const handleRegister = async () => {
     registerForm.value.username,
     registerForm.value.email,
     registerForm.value.password,
-    registerForm.value.name
+    registerForm.value.name,
+    registerForm.value.dataProcessingConsent
   )
   
   if (result.success) {
@@ -321,6 +351,12 @@ const handleRegister = async () => {
     registrationMessage.value = result.message
     // Не перенаправляем пользователя, а показываем сообщение о необходимости подтверждения email
   }
+}
+
+const showPrivacyPolicy = () => {
+  // Здесь можно открыть модальное окно с политикой конфиденциальности
+  // или перенаправить на страницу с политикой
+  alert('Политика конфиденциальности: обработка персональных данных осуществляется в соответствии с требованиями законодательства РФ.')
 }
 </script>
 
@@ -432,6 +468,8 @@ h2 {
   padding: 0.75rem;
   margin-bottom: 1.5rem;
   border-radius: 4px;
+  font-weight: bold;
+  text-align: center;
 }
 
 .validation-error {
@@ -447,5 +485,25 @@ h2 {
   margin-bottom: 1.5rem;
   border-radius: 4px;
   text-align: center;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: flex-start;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: auto;
+  margin-top: 0.25rem;
+}
+
+.consent-label {
+  margin-left: 0.5rem;
+  font-weight: normal;
+}
+
+.consent-label a {
+  color: #3498db;
+  text-decoration: underline;
 }
 </style> 

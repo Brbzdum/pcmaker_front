@@ -249,6 +249,26 @@ const createRealClient = () => {
     (error) => {
       console.error('API Error:', error.response?.data || error.message); // Добавляем логирование ошибок
       
+      // Более детальное логирование ошибок регистрации
+      if (error.config?.url?.includes('/auth/signup')) {
+        console.error('Registration error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          headers: error.response?.headers
+        });
+        
+        // Проверяем, содержит ли ответ сообщение об ошибке
+        const errorData = error.response?.data;
+        if (errorData) {
+          // Если ответ содержит сообщение об ошибке, логируем его
+          if (typeof errorData === 'string') {
+            console.error('Error message (string):', errorData);
+          } else if (errorData.message) {
+            console.error('Error message (object.message):', errorData.message);
+          }
+        }
+      }
+      
       const originalRequest = error.config;
       
       // If the error is due to an expired token

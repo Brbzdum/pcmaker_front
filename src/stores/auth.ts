@@ -136,18 +136,19 @@ export const useAuthStore = defineStore('auth', {
       }
     },
     
-    async register(username: string, email: string, password: string, name: string) {
+    async register(username: string, email: string, password: string, name: string, dataProcessingConsent: boolean) {
       this.isLoading = true
       this.error = null
       
       try {
-        console.log('Sending registration request with data:', { username, email, name });
+        console.log('Sending registration request with data:', { username, email, name, dataProcessingConsent });
         
         const response = await apiClient.post('/auth/signup', {
           username,
           email,
           password,
-          name
+          name,
+          dataProcessingConsent
         })
         
         console.log('Registration response:', response.data);
@@ -180,6 +181,13 @@ export const useAuthStore = defineStore('auth', {
           }
         } else if (error.message) {
           errorMessage = error.message;
+        }
+        
+        // Проверяем наличие конкретных ошибок, связанных с регистрацией
+        if (errorMessage.includes('email уже существует')) {
+          errorMessage = 'Пользователь с таким email уже существует';
+        } else if (errorMessage.includes('username уже существует')) {
+          errorMessage = 'Пользователь с таким именем уже существует';
         }
         
         // Локализуем сообщение об ошибке
