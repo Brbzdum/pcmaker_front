@@ -74,13 +74,29 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfiguratorStore } from '@/stores/configurator'
 
+interface ConfigurationComponent {
+  id: number;
+  productName: string;
+  type: string;
+  price: number;
+}
+
+interface Configuration {
+  id: number;
+  name: string;
+  totalPrice: number;
+  isCompatible: boolean;
+  description?: string;
+  components: ConfigurationComponent[];
+}
+
 const route = useRoute()
 const router = useRouter()
 const configuratorStore = useConfiguratorStore()
 
-const configuration = ref(null)
+const configuration = ref<Configuration | null>(null)
 const isLoading = ref(false)
-const error = ref(null)
+const error = ref<string | null>(null)
 
 onMounted(async () => {
   const configId = Number(route.params.id)
@@ -92,8 +108,8 @@ onMounted(async () => {
   isLoading.value = true
   try {
     const result = await configuratorStore.getConfigurationDetails(configId)
-    configuration.value = result
-  } catch (err) {
+    configuration.value = result as Configuration
+  } catch (err: any) {
     error.value = err.message || 'Ошибка при загрузке конфигурации'
   } finally {
     isLoading.value = false
@@ -129,7 +145,7 @@ const loadToConfigurator = async () => {
     } else {
       error.value = 'Ошибка при загрузке конфигурации в конфигуратор'
     }
-  } catch (err) {
+  } catch (err: any) {
     error.value = err.message || 'Ошибка при загрузке конфигурации'
   } finally {
     isLoading.value = false

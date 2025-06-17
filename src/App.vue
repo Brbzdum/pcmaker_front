@@ -4,11 +4,9 @@ import { useAuthStore } from '@/stores/auth'
 import { computed } from 'vue'
 import PcMakerLogo from '@/components/PcMakerLogo.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
-import { useTheme } from '@/composables/useTheme'
 
 const authStore = useAuthStore()
 const isAuthenticated = computed(() => authStore.getIsAuthenticated)
-const { currentTheme } = useTheme()
 </script>
 
 <template>

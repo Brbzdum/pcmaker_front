@@ -211,8 +211,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useConfiguratorStore } from '@/stores/configurator'
 import { useOrderStore } from '@/stores/order'
 import apiClient from '@/api/apiClient'
-import { components } from '@/api/mockData'
 import OrderCard from '@/components/OrderCard.vue'
+import { formatDate } from '@/utils/dateUtils'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -225,25 +225,6 @@ const error = ref('')
 const isUpdating = ref(false)
 
 // Типы для пользовательских данных
-interface OrderItem {
-  name: string;
-  quantity: number;
-  price: number;
-  productId: number;
-  productName?: string;
-  productPrice?: number;
-}
-
-interface Order {
-  id: number;
-  date: string;
-  status: string;
-  items: OrderItem[];
-  total: number;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
 interface Configuration {
   id: number;
   name: string;
@@ -355,7 +336,7 @@ const fetchUserConfigurations = async () => {
       user.value.savedConfigurations = configs.map(config => ({
         id: config.id,
         name: config.name || `Конфигурация #${config.id}`,
-        date: formatDate(config.createdAt),
+        date: formatDate(config.createdAt, 'Дата сохранения не указана'),
         components: config.components ? config.components.map((comp: any) => comp.productId || comp.id) : []
       }))
       
@@ -367,81 +348,6 @@ const fetchUserConfigurations = async () => {
   }
 }
 
-// Форматирование даты
-const formatDate = (dateString: string) => {
-  // Если дата пустая, возвращаем заглушку
-  if (!dateString) {
-    return 'Дата не указана';
-  }
-  
-  try {
-    // Пробуем напрямую преобразовать строку в объект Date
-    let date = new Date(dateString);
-    
-    // Проверяем валидность даты
-    if (!isNaN(date.getTime())) {
-      return date.toLocaleDateString('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    }
-    
-    // Если не получилось, пробуем разные форматы
-    
-    // Проверяем формат ISO с Z в конце (UTC)
-    if (dateString.includes('T') && dateString.includes('Z')) {
-      return new Date(dateString).toLocaleDateString('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    }
-    
-    // Проверяем формат ISO без Z (локальное время)
-    if (dateString.includes('T')) {
-      return new Date(dateString + 'Z').toLocaleDateString('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    }
-    
-    // Проверяем формат dd.MM.yyyy
-    if (dateString.includes('.') && dateString.split('.').length === 3) {
-      const parts = dateString.split('.');
-      const newDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-      if (!isNaN(newDate.getTime())) {
-        return newDate.toLocaleDateString('ru-RU', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        });
-      }
-    }
-    
-    // Если ничего не помогло, возвращаем дату как есть
-    return dateString;
-  } catch (error) {
-    console.error('Ошибка при форматировании даты:', error);
-    return 'Ошибка даты';
-  }
-}
-
-// Перевод статуса заказа
-const translateStatus = (status: string) => {
-  const statusMap: Record<string, string> = {
-    'PENDING': 'Обрабатывается',
-    'PROCESSING': 'В обработке',
-    'SHIPPED': 'Отправлен',
-    'DELIVERED': 'Доставлен',
-    'CANCELLED': 'Отменен',
-    'COMPLETED': 'Выполнен'
-  };
-  
-  return statusMap[status] || status;
-}
-
 // Обновление профиля
 const updateProfile = async () => {
   if (passwordError.value) return
@@ -450,7 +356,12 @@ const updateProfile = async () => {
   
   try {
     // Отправляем запрос на обновление профиля
-    const updateData = {
+    const updateData: {
+      username: string;
+      email: string;
+      currentPassword?: string;
+      newPassword?: string;
+    } = {
       username: profileForm.value.username,
       email: profileForm.value.email
     }
@@ -520,26 +431,6 @@ const loadConfiguration = (config: Configuration) => {
       console.error('Ошибка при загрузке конфигурации:', error);
       alert('Не удалось загрузить конфигурацию. Попробуйте позже.');
     });
-}
-
-// Получение класса для статуса заказа
-const getStatusClass = (status: string) => {
-  switch (status) {
-    case 'Выполнен':
-    case 'COMPLETED':
-    case 'DELIVERED':
-      return 'status-completed'
-    case 'Обрабатывается':
-    case 'PROCESSING':
-    case 'PENDING':
-    case 'SHIPPED':
-      return 'status-processing'
-    case 'Отменен':
-    case 'CANCELLED':
-      return 'status-cancelled'
-    default:
-      return ''
-  }
 }
 </script>
 

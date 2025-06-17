@@ -47,7 +47,7 @@
               <div class="avatar">{{ review.username?.charAt(0) || 'U' }}</div>
               <div class="user-info">
                 <div class="username">{{ review.username || 'Пользователь' }}</div>
-                <div class="review-date">{{ formatDate(review.createdAt) }}</div>
+                <div class="review-date">{{ formatDateWithTime(review.createdAt) }}</div>
               </div>
             </div>
             <div class="review-rating">
@@ -99,17 +99,31 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useReviewStore } from '@/stores/review'
 import { useAuthStore } from '@/stores/auth'
+import { formatDate, formatDateWithTime } from '@/utils/dateUtils'
+
+// Define review interface with reported property
+interface Review {
+  id: number;
+  userId: number;
+  username?: string;
+  productId: number;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  reported?: boolean;
+}
 
 const props = defineProps<{
   productId: number
 }>()
 
-const emit = defineEmits<{
+// we're using emit but not storing it in a variable
+defineEmits<{
   (e: 'add-review'): void
-  (e: 'edit-review', review: any): void
+  (e: 'edit-review', review: Review): void
   (e: 'delete-review', reviewId: number): void
   (e: 'report-review', reviewId: number): void
 }>()
@@ -140,31 +154,7 @@ const getRatingPercentage = (rating: number) => {
   return (getRatingCount(rating) / reviews.value.length) * 100
 }
 
-const formatDate = (dateStr: string) => {
-  if (!dateStr) {
-    return 'Н/Д';
-  }
-  
-  try {
-    const date = new Date(dateStr);
-    
-    // Проверка на валидность даты
-    if (isNaN(date.getTime())) {
-      return 'Некорректная дата';
-    }
-    
-    return new Intl.DateTimeFormat('ru-RU', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric' 
-    }).format(date);
-  } catch (error) {
-    console.error('Ошибка форматирования даты:', error);
-    return 'Ошибка даты';
-  }
-}
-
-const canEdit = (review: any) => {
+const canEdit = (review: Review) => {
   return authStore.getIsAuthenticated && 
          authStore.getUser && 
          review.userId === authStore.getUser.id

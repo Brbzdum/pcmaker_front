@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import UserConfigurationsView from '@/views/UserConfigurationsView.vue'
 import PublicConfigurationsView from '@/views/PublicConfigurationsView.vue'
+import CompareConfigurationsView from '@/views/CompareConfigurationsView.vue'
 
 // Check if user is authenticated
 const isAuthenticated = () => {
@@ -89,12 +90,18 @@ const router = createRouter({
       path: '/public-configurations',
       name: 'public-configurations',
       component: PublicConfigurationsView
+    },
+    {
+      path: '/compare-configurations',
+      name: 'compare-configurations',
+      component: CompareConfigurationsView,
+      meta: { requiresAuth: true }
     }
   ]
 })
 
 // Navigation guard for private routes
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   if (to.meta.requiresAuth && !isAuthenticated()) {
     next('/login')
   } else {

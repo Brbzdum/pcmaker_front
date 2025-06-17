@@ -487,7 +487,22 @@ export const useConfiguratorStore = defineStore('configurator', {
       
       try {
         const response = await apiClient.get(`/configurations/user/${user.id}`);
-        this.savedConfigurations = response.data;
+        console.log('Raw configurations data:', response.data);
+        
+        // Проверяем наличие дат в каждой конфигурации
+        const configurations = response.data.map((config: any) => {
+          console.log(`Configuration ${config.id} date:`, config.createdAt);
+          
+          // Если дата не указана или пустая, добавляем текущую дату
+          if (!config.createdAt) {
+            console.warn(`Configuration ${config.id} has no date, using current date`);
+            config.createdAt = new Date().toISOString();
+          }
+          
+          return config;
+        });
+        
+        this.savedConfigurations = configurations;
         return this.savedConfigurations;
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to fetch user configurations';
@@ -506,6 +521,14 @@ export const useConfiguratorStore = defineStore('configurator', {
         const response = await apiClient.get(`/configurations/${configId}`);
         const config = response.data;
         console.log('Configuration details received:', config);
+        
+        // Проверяем наличие даты создания
+        if (!config.createdAt) {
+          console.warn(`Configuration ${configId} has no date, using current date`);
+          config.createdAt = new Date().toISOString();
+        } else {
+          console.log(`Configuration ${configId} date:`, config.createdAt);
+        }
         
         // Проверяем наличие компонентов
         if (config && config.components) {

@@ -30,12 +30,18 @@ interface OrderStatusHistory {
   changedAt: string
 }
 
-interface OrderCreateRequest {
+/**
+ * @internal Used for API integration
+ */
+export interface OrderCreateRequest {
   userId: number
   configurationId?: number
 }
 
-interface OrderStatusUpdateRequest {
+/**
+ * @internal Used for API integration
+ */
+export interface OrderStatusUpdateRequest {
   status: string
   comment?: string
 }

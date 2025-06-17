@@ -31,7 +31,6 @@ interface Filter {
   categoryIds?: number[]
   searchQuery?: string
   componentType?: string
-  peripheralType?: string
   compatibleIds?: number[]
 }
 
@@ -246,8 +245,7 @@ export const useCatalogStore = defineStore('catalog', {
       priceMin?: number | null,
       priceMax?: number | null,
       searchQuery?: string,
-      componentType?: string | null,
-      peripheralType?: string | null
+      componentType?: string | null
     }) {
       this.filter = {
         manufacturer: filter.manufacturers?.length ? filter.manufacturers : undefined,
@@ -255,8 +253,7 @@ export const useCatalogStore = defineStore('catalog', {
         priceMin: filter.priceMin !== null ? filter.priceMin : undefined,
         priceMax: filter.priceMax !== null ? filter.priceMax : undefined,
         searchQuery: filter.searchQuery || undefined,
-        componentType: filter.componentType || undefined,
-        peripheralType: filter.peripheralType || undefined
+        componentType: filter.componentType || undefined
       };
       
       this.applyFilter();
@@ -280,57 +277,6 @@ export const useCatalogStore = defineStore('catalog', {
       if (this.filter.componentType) {
         filtered = filtered.filter(c => c.type === this.filter.componentType)
         console.log(`After filtering by component type ${this.filter.componentType}: ${filtered.length} components`);
-      }
-      
-      // Filter by specific peripheral type (используем категорию с флагом isPeripheral)
-      if (this.filter.peripheralType) {
-        console.log('Filtering by peripheral type:', this.filter.peripheralType);
-        
-        // Преобразуем тип в нижний регистр для сравнения
-        const typeLowerCase = this.filter.peripheralType.toLowerCase();
-        
-        // Проверяем как единственное, так и множественное число
-        const singularForm = typeLowerCase.endsWith('s') ? 
-          typeLowerCase.slice(0, -1) : typeLowerCase;
-        const pluralForm = typeLowerCase.endsWith('s') ? 
-          typeLowerCase : typeLowerCase + 's';
-        
-        console.log(`Looking for slug matches: singular=${singularForm}, plural=${pluralForm}`);
-        
-        // Находим ID категорий, соответствующих типу периферии
-        const peripheralCategories = this.components
-          .filter(c => c.category && c.category.isPeripheral)
-          .map(c => c.category);
-        
-        // Получаем ID категорий, соответствующих запрошенному типу
-        const matchingCategoryIds = peripheralCategories
-          .filter((c): c is NonNullable<typeof c> => c !== undefined && c !== null)
-          .filter(c => {
-            const slug = c.slug?.toLowerCase();
-            const name = c.name?.toLowerCase();
-            
-            // Проверяем совпадение по slug или по имени
-            return slug === singularForm || 
-                   slug === pluralForm || 
-                   (name && (name.includes(singularForm) || name.includes(pluralForm)));
-          })
-          .map(c => c.id);
-        
-        console.log('Matching category IDs for peripheral type:', matchingCategoryIds);
-        
-        // Если нашли категории, фильтруем по их ID
-        if (matchingCategoryIds.length > 0) {
-          // Добавляем ID категорий в фильтр
-          if (!this.filter.categoryIds) {
-            this.filter.categoryIds = matchingCategoryIds;
-          } else {
-            this.filter.categoryIds = [...this.filter.categoryIds, ...matchingCategoryIds];
-          }
-          
-          console.log(`Added category IDs to filter: ${matchingCategoryIds}`);
-        } else {
-          console.warn(`No matching categories found for peripheral type: ${this.filter.peripheralType}`);
-        }
       }
 
       // Filter by category IDs

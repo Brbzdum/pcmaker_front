@@ -106,7 +106,7 @@
             <div class="cart-items">
               <div 
                 v-for="item in cartItems" 
-                :key="item.id"
+                :key="item.productId"
                 class="cart-item"
               >
                 <div class="item-name">{{ item.productName }}</div>
@@ -169,12 +169,10 @@ import { ref, onMounted, computed } from 'vue'
 import { useCartStore } from '@/stores/cart'
 import { useAuthStore } from '@/stores/auth'
 import { useOrderStore } from '@/stores/order'
-import { useRouter } from 'vue-router'
 
 const cartStore = useCartStore()
 const authStore = useAuthStore()
 const orderStore = useOrderStore()
-const router = useRouter()
 
 // Создаем вычисляемые свойства для доступа к данным корзины
 const cartItems = computed(() => {

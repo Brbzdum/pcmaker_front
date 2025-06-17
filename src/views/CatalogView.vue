@@ -23,13 +23,6 @@
             >
               Компоненты ПК
             </button>
-            <button 
-              class="filter-tab" 
-              :class="{ active: viewMode === 'peripherals' }"
-              @click="selectPeripheralType(selectedPeripheralType || 'keyboard'); selectComponentType(null);"
-            >
-              Периферия
-            </button>
           </div>
         </div>
         
@@ -50,7 +43,7 @@
         </div>
         
         <!-- Фильтр типов периферии (показывается только при выбранной вкладке "Периферия") -->
-        <div class="filter-group" v-if="viewMode === 'peripherals'">
+        <div class="filter-group" v-if="false">
           <h3>Тип периферии</h3>
           <div v-if="peripheralTypes.length === 0" class="loading-types">
             Загрузка типов периферии...
@@ -219,12 +212,12 @@
             
             <div class="component-price">
               <span class="price-value">{{ formatPrice(component.price) }} ₽</span>
-              <div class="price-rating" v-if="component.averageRating">
+              <div class="price-rating" v-if="component.rating">
                 <span class="stars">
-                  <i class="fas fa-star" v-for="i in Math.floor(component.averageRating)" :key="'star-'+i"></i>
-                  <i class="fas fa-star-half-alt" v-if="component.averageRating % 1 >= 0.5"></i>
+                  <i class="fas fa-star" v-for="i in Math.floor(component.rating)" :key="'star-'+i"></i>
+                  <i class="fas fa-star-half-alt" v-if="component.rating % 1 >= 0.5"></i>
                 </span>
-                <span class="rating-value">{{ component.averageRating.toFixed(1) }}</span>
+                <span class="rating-value">{{ component.rating.toFixed(1) }}</span>
               </div>
             </div>
             
@@ -292,9 +285,8 @@ const typeTranslations = {
   'microphone': 'Микрофон'
 }
 
-// Вычисляемое свойство для определения типа просмотра (компоненты или периферия)
+// Вычисляемое свойство для определения типа просмотра (компоненты или все товары)
 const viewMode = computed(() => {
-  if (selectedPeripheralType.value) return 'peripherals'
   if (selectedComponentType.value) return 'components'
   return 'all'
 })
@@ -308,26 +300,46 @@ onMounted(async () => {
   ])
   
   console.log('Peripheral types loaded:', catalogStore.getPeripheralTypes);
-  console.log('All categories loaded:', categoryStore.getAllCategories);
+  console.log('All categories loaded:', categoryStore.getAllCategories.length);
   
   // Проверяем параметры URL
   const queryComponentType = route.query.componentType as string
   const queryCategory = route.query.category as string
-  const queryPeripheralType = route.query.peripheralType as string
+  const queryCategoryIds = route.query.categoryIds as string
   
   console.log('URL parameters:', { 
     queryComponentType, 
-    queryCategory, 
-    queryPeripheralType 
+    queryCategory,
+    queryCategoryIds
   });
   
   if (queryComponentType) {
     selectedComponentType.value = queryComponentType
+    console.log(`Setting component type from URL: ${queryComponentType}`);
   } else if (queryCategory) {
+    // Устанавливаем тип периферии из параметра категории
     selectedPeripheralType.value = queryCategory
-  } else if (queryPeripheralType) {
-    selectedPeripheralType.value = queryPeripheralType
-    console.log(`Setting peripheral type from URL: ${queryPeripheralType}`);
+    console.log(`Setting peripheral type from URL category: ${queryCategory}`);
+  } else if (queryCategoryIds) {
+    // Устанавливаем категории из параметра categoryIds
+    const categoryIds = queryCategoryIds.split(',').map(id => parseInt(id))
+    selectedCategories.value = categoryIds
+    console.log(`Setting categories from URL: ${categoryIds}`);
+    
+    // Выводим выбранные категории для отладки
+    const selectedCats = categoryStore.getAllCategories.filter(c => categoryIds.includes(c.id));
+    console.log('Selected categories:', selectedCats);
+    
+    // Определяем тип периферии по категориям
+    const categories = categoryStore.getAllCategories.filter(c => categoryIds.includes(c.id))
+    if (categories.length > 0 && categories[0].isPeripheral) {
+      // Если это категории периферии, устанавливаем тип периферии
+      const category = categories[0]
+      if (category.slug) {
+        selectedPeripheralType.value = category.slug.toLowerCase()
+        console.log(`Setting peripheral type from category: ${selectedPeripheralType.value}`);
+      }
+    }
   }
   
   // Если указан параметр совместимости, применяем его
@@ -336,6 +348,16 @@ onMounted(async () => {
     const componentIds = compatibleWith.split(',').map(id => parseInt(id))
     await catalogStore.filterCompatibleComponents(componentIds)
   }
+  
+  // Применяем фильтры
+  console.log('Applying filters with:', {
+    manufacturers: selectedManufacturers.value,
+    categories: selectedCategories.value,
+    priceMin: priceMin.value,
+    priceMax: priceMax.value,
+    searchQuery: searchQuery.value,
+    componentType: selectedComponentType.value
+  });
   
   applyFilters()
 })
@@ -449,14 +471,30 @@ const addToCart = async (component: any) => {
 
 // Функция для применения фильтров
 const applyFilters = () => {
+  console.log('Applying filters with:', {
+    manufacturers: selectedManufacturers.value,
+    categories: selectedCategories.value,
+    priceMin: priceMin.value,
+    priceMax: priceMax.value,
+    searchQuery: searchQuery.value,
+    componentType: selectedComponentType.value
+  });
+  
+  // Проверяем, что выбранные категории существуют
+  if (selectedCategories.value.length > 0) {
+    const existingCategories = categoryStore.getAllCategories.filter(c => 
+      selectedCategories.value.includes(c.id)
+    );
+    console.log(`Found ${existingCategories.length} existing categories out of ${selectedCategories.value.length} selected`);
+  }
+  
   catalogStore.filterComponents({
     manufacturers: selectedManufacturers.value,
     categories: selectedCategories.value,
     priceMin: priceMin.value,
     priceMax: priceMax.value,
     searchQuery: searchQuery.value,
-    componentType: selectedComponentType.value,
-    peripheralType: selectedPeripheralType.value
+    componentType: selectedComponentType.value
   })
 }
 
@@ -529,52 +567,43 @@ const selectPeripheralType = (type: string | null) => {
   selectedPeripheralType.value = typeLowerCase;
   selectedComponentType.value = null;
   
-  // Сбрасываем выбранные категории
+  // Сбрасываем выбранные категории при смене типа периферии
   selectedCategories.value = [];
   
-  // Если выбран тип периферии, загрузим соответствующие товары
+  // Если выбран тип периферии, находим соответствующие категории
   if (typeLowerCase) {
-    // Найдем категории периферии
-    const peripheralCategories = categoryStore.getAllCategories.filter(c => c.isPeripheral);
-    console.log('Available peripheral categories:', peripheralCategories);
-    
-    // Проверяем как единственное, так и множественное число
-    const singularForm = typeLowerCase.endsWith('s') ? 
-      typeLowerCase.slice(0, -1) : typeLowerCase;
-    const pluralForm = typeLowerCase.endsWith('s') ? 
-      typeLowerCase : typeLowerCase + 's';
+    const categories = categoryStore.getAllCategories.filter(category => {
+      if (!category.isPeripheral) return false;
       
-    console.log(`Looking for category with slug matching: singular=${singularForm}, plural=${pluralForm}`);
-    
-    // Ищем категории с подходящим slug или именем (в нижнем регистре)
-    const matchingCategories = peripheralCategories.filter(c => {
-      const slug = c.slug?.toLowerCase();
-      const name = c.name?.toLowerCase();
+      // Проверяем slug категории
+      if (category.slug) {
+        const slug = category.slug.toLowerCase();
+        if (slug === typeLowerCase || 
+            (typeLowerCase.endsWith('s') && slug === typeLowerCase.slice(0, -1)) ||
+            (!typeLowerCase.endsWith('s') && slug === typeLowerCase + 's')) {
+          return true;
+        }
+      }
       
-      // Проверяем совпадение по slug или по имени
-      const matchBySlug = slug === singularForm || slug === pluralForm;
-      const matchByName = name && (
-        name.includes(singularForm) || 
-        name.includes(pluralForm) ||
-        singularForm.includes(name) || 
-        pluralForm.includes(name)
-      );
+      // Проверяем имя категории
+      if (category.name) {
+        const name = category.name.toLowerCase();
+        if (name.includes(typeLowerCase) || typeLowerCase.includes(name)) {
+          return true;
+        }
+      }
       
-      console.log(`Checking category: ${c.name}, slug: ${slug}, match: ${matchBySlug || matchByName}`);
-      return matchBySlug || matchByName;
+      return false;
     });
     
-    console.log('Matching categories:', matchingCategories);
-    
-    if (matchingCategories.length > 0) {
-      // Если нашли категории, добавим их ID в выбранные категории
-      selectedCategories.value = matchingCategories.map(c => c.id);
-      console.log(`Selected category IDs: ${selectedCategories.value}`);
-    } else {
-      console.warn(`No matching categories found for peripheral type: ${typeLowerCase}`);
+    // Добавляем найденные категории в выбранные
+    if (categories.length > 0) {
+      selectedCategories.value = categories.map(c => c.id);
+      console.log(`Found ${categories.length} matching categories:`, selectedCategories.value);
     }
   }
   
+  // Применяем фильтры
   applyFilters();
 }
 
@@ -587,13 +616,31 @@ const translateType = (type: string): string => {
 watch(() => route.query, (newQuery) => {
   const componentType = newQuery.componentType as string
   const category = newQuery.category as string
+  const categoryIds = newQuery.categoryIds as string
   
   if (componentType && componentType !== selectedComponentType.value) {
     selectedComponentType.value = componentType
     selectedPeripheralType.value = null
+    selectedCategories.value = []
   } else if (category && category !== selectedPeripheralType.value) {
+    // Устанавливаем тип периферии из параметра категории
     selectedPeripheralType.value = category
     selectedComponentType.value = null
+  } else if (categoryIds) {
+    // Устанавливаем категории из параметра categoryIds
+    const categoryIdsArray = categoryIds.split(',').map(id => parseInt(id))
+    selectedCategories.value = categoryIdsArray
+    selectedComponentType.value = null
+    
+    // Определяем тип периферии по категориям
+    const categories = categoryStore.getAllCategories.filter(c => categoryIdsArray.includes(c.id))
+    if (categories.length > 0 && categories[0].isPeripheral) {
+      // Если это категории периферии, устанавливаем тип периферии
+      const category = categories[0]
+      if (category.slug) {
+        selectedPeripheralType.value = category.slug.toLowerCase()
+      }
+    }
   }
   
   applyFilters()
@@ -624,23 +671,6 @@ const getManufacturerName = (component: any) => {
 // Функция форматирования цены
 const formatPrice = (price: number) => {
   return price.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ")
-}
-
-// Функция для получения верхних спецификаций
-const getTopSpecs = (specs: any) => {
-  const topSpecs = {};
-  for (const key in specs) {
-    if (typeof specs[key] === 'string' || typeof specs[key] === 'number') {
-      topSpecs[key] = specs[key];
-    }
-  }
-  return topSpecs;
-}
-
-// Функция для форматирования имени спецификации
-const formatSpecName = (key: string) => {
-  const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  return formattedKey.charAt(0).toUpperCase() + formattedKey.slice(1);
 }
 </script>
 

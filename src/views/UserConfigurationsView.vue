@@ -26,6 +26,21 @@
           <option value="name_desc">Название (Я-А)</option>
         </select>
       </div>
+
+      <!-- Кнопка сравнения конфигураций -->
+      <div class="compare-actions" v-if="selectedConfigurations.length > 0">
+        <span class="selected-count">Выбрано: {{ selectedConfigurations.length }}</span>
+        <button 
+          @click="compareConfigurations" 
+          class="btn-compare"
+          :disabled="selectedConfigurations.length < 2"
+        >
+          Сравнить выбранное
+        </button>
+        <button @click="clearSelection" class="btn-clear-selection">
+          Очистить выбор
+        </button>
+      </div>
     </div>
     
     <div v-if="isLoading" class="loading">
@@ -47,7 +62,19 @@
         v-for="config in filteredConfigurations" 
         :key="config.id" 
         class="configuration-card"
+        :class="{ 'selected': isConfigurationSelected(config.id) }"
       >
+        <!-- Чекбокс для выбора конфигурации -->
+        <div class="config-select">
+          <input 
+            type="checkbox" 
+            :id="`config-${config.id}`" 
+            :checked="isConfigurationSelected(config.id)"
+            @change="toggleConfigurationSelection(config.id)"
+          />
+          <label :for="`config-${config.id}`"></label>
+        </div>
+
         <div class="config-header">
           <h2>{{ config.name }}</h2>
           <div class="config-price">{{ formatPrice(config.totalPrice) }} ₽</div>
@@ -55,7 +82,7 @@
         
         <div class="config-details">
           <div class="config-date">
-            Создана: {{ formatDate(config.createdAt) }}
+            Создана: {{ formatDate(config.createdAt, 'Дата создания не указана') }}
           </div>
           <div class="config-category" v-if="config.category">
             Категория: {{ translateCategory(config.category) }}
@@ -120,7 +147,7 @@
               {{ currentConfig.isPublic ? 'Опубликована' : 'Не опубликована' }}
             </div>
             <div class="config-date">
-              Создана: {{ formatDate(currentConfig.createdAt) }}
+              Создана: {{ formatDateWithTime(currentConfig.createdAt, 'Дата создания не указана') }}
             </div>
           </div>
           
@@ -190,6 +217,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfiguratorStore } from '@/stores/configurator'
 import { useAuthStore } from '@/stores/auth'
+import { formatDate, formatDateWithTime } from '@/utils/dateUtils'
 
 const router = useRouter()
 const configuratorStore = useConfiguratorStore()
@@ -203,6 +231,7 @@ const showDeleteModal = ref(false)
 const configIdToDelete = ref<number | null>(null)
 const selectedCategory = ref('')
 const sortBy = ref('price_desc')
+const selectedConfigurations = ref<number[]>([])
 
 // Получаем конфигурации из хранилища
 const configurations = computed(() => configuratorStore.getSavedConfigurations)
@@ -256,65 +285,47 @@ onMounted(async () => {
   }
 })
 
-// Форматирование цены
-const formatPrice = (price: number) => {
-  return price.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ")
-}
+// Функция для форматирования цены
+const formatPrice = (price: number | undefined): string => {
+  if (price === undefined) return '0';
+  return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+};
 
-// Форматирование даты
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
+// Функция для перевода категории
+const translateCategory = (category: string): string => {
+  const categories: Record<string, string> = {
+    'GAMING': 'Игровой',
+    'OFFICE': 'Офисный',
+    'MULTIMEDIA': 'Мультимедийный',
+    'PROFESSIONAL': 'Профессиональный',
+    'BUDGET': 'Бюджетный',
+    'CUSTOM': 'Пользовательский'
+  };
+  
+  return categories[category] || category;
+};
 
-// Перевод типа компонента
-const translateComponentType = (type: string) => {
-  console.log('Translating component type:', type)
-  
-  if (!type) {
-    console.warn('Component type is undefined or null')
-    return 'Неизвестный компонент'
-  }
-  
-  const translations: Record<string, string> = {
+// Функция для перевода типа компонента
+const translateComponentType = (type: string): string => {
+  const types: Record<string, string> = {
     'CPU': 'Процессор',
     'GPU': 'Видеокарта',
-    'RAM': 'Оперативная память',
-    'MB': 'Материнская плата',
     'MOTHERBOARD': 'Материнская плата',
-    'STORAGE': 'Хранилище',
+    'RAM': 'Оперативная память',
+    'STORAGE': 'Накопитель',
     'PSU': 'Блок питания',
     'CASE': 'Корпус',
-    'COOLER': 'Охлаждение'
-  }
+    'COOLING': 'Охлаждение',
+    'MONITOR': 'Монитор',
+    'KEYBOARD': 'Клавиатура',
+    'MOUSE': 'Мышь',
+    'HEADPHONES': 'Наушники',
+    'OS': 'Операционная система',
+    'OTHER': 'Другое'
+  };
   
-  const result = translations[type] || type
-  console.log('Translated to:', result)
-  return result
-}
-
-// Перевод категории
-const translateCategory = (category: string) => {
-  if (!category) return '';
-  
-  const translations: Record<string, string> = {
-    'BUDGET': 'Бюджетная',
-    'GAMING': 'Игровая',
-    'OFFICE': 'Офисная',
-    'WORKSTATION': 'Рабочая станция',
-    'STREAMING': 'Стриминг',
-    'DESIGN': 'Дизайн',
-    'CUSTOM': 'Другое'
-  }
-  
-  return translations[category] || category
-}
+  return types[type] || type;
+};
 
 // Просмотр деталей конфигурации
 const viewDetails = async (configId: number) => {
@@ -383,6 +394,39 @@ const togglePublish = async (config: any) => {
     isLoading.value = false
   }
 }
+
+// Методы для работы с выбором конфигураций для сравнения
+const isConfigurationSelected = (configId: number) => {
+  return selectedConfigurations.value.includes(configId)
+}
+
+const toggleConfigurationSelection = (configId: number) => {
+  const index = selectedConfigurations.value.indexOf(configId)
+  if (index === -1) {
+    // Если не выбрана, добавляем
+    selectedConfigurations.value.push(configId)
+  } else {
+    // Если выбрана, убираем
+    selectedConfigurations.value.splice(index, 1)
+  }
+}
+
+const clearSelection = () => {
+  selectedConfigurations.value = []
+}
+
+const compareConfigurations = () => {
+  if (selectedConfigurations.value.length < 2) {
+    // Требуется минимум 2 конфигурации для сравнения
+    return
+  }
+  
+  // Переходим на страницу сравнения с выбранными ID
+  router.push({
+    path: '/compare-configurations',
+    query: { ids: selectedConfigurations.value }
+  })
+}
 </script>
 
 <style scoped>
@@ -428,11 +472,29 @@ h1 {
 }
 
 .configuration-card {
-  border: 1px solid #ddd;
+  position: relative;
+  border: 1px solid #e0e0e0;
   border-radius: 8px;
-  padding: 1.5rem;
-  background-color: white;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  padding: 20px;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+}
+
+.configuration-card.selected {
+  border-color: #1976d2;
+  background-color: #e3f2fd;
+}
+
+.config-select {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+}
+
+.config-select input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
 }
 
 .config-header {
@@ -669,9 +731,10 @@ h1 {
 
 .filters {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 20px;
+  gap: 15px;
 }
 
 .filter-group {
@@ -680,12 +743,49 @@ h1 {
 }
 
 .filter-group label {
-  margin-right: 0.5rem;
+  margin-right: 10px;
 }
 
-.filter-group select {
-  padding: 0.5rem;
+.compare-actions {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  gap: 10px;
+}
+
+.selected-count {
+  font-weight: 500;
+}
+
+.btn-compare, .btn-clear-selection {
+  padding: 8px 15px;
+  border: none;
   border-radius: 4px;
-  border: 1px solid #ddd;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.3s;
+}
+
+.btn-compare {
+  background-color: #1976d2;
+  color: white;
+}
+
+.btn-compare:hover:not(:disabled) {
+  background-color: #1565c0;
+}
+
+.btn-compare:disabled {
+  background-color: #bbdefb;
+  cursor: not-allowed;
+}
+
+.btn-clear-selection {
+  background-color: #e0e0e0;
+  color: #424242;
+}
+
+.btn-clear-selection:hover {
+  background-color: #bdbdbd;
 }
 </style> 

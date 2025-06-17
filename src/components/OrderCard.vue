@@ -34,6 +34,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { formatDate } from '@/utils/dateUtils'
 
 const props = defineProps({
   order: {
@@ -44,70 +45,12 @@ const props = defineProps({
 
 // Форматирование даты
 const formattedDate = computed(() => {
-  const dateString = props.order.createdAt;
-  
-  // Если дата пустая, возвращаем заглушку
-  if (!dateString) {
-    return 'Дата не указана';
-  }
-  
-  try {
-    // Пробуем напрямую преобразовать строку в объект Date
-    let date = new Date(dateString);
-    
-    // Проверяем валидность даты
-    if (!isNaN(date.getTime())) {
-      return date.toLocaleDateString('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    }
-    
-    // Если не получилось, пробуем разные форматы
-    
-    // Проверяем формат ISO с Z в конце (UTC)
-    if (dateString.includes('T') && dateString.includes('Z')) {
-      return new Date(dateString).toLocaleDateString('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    }
-    
-    // Проверяем формат ISO без Z (локальное время)
-    if (dateString.includes('T')) {
-      return new Date(dateString + 'Z').toLocaleDateString('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    }
-    
-    // Проверяем формат dd.MM.yyyy
-    if (dateString.includes('.') && dateString.split('.').length === 3) {
-      const parts = dateString.split('.');
-      const newDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-      if (!isNaN(newDate.getTime())) {
-        return newDate.toLocaleDateString('ru-RU', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        });
-      }
-    }
-    
-    // Если ничего не помогло, возвращаем дату как есть
-    return dateString;
-  } catch (error) {
-    console.error('Ошибка при форматировании даты:', error);
-    return 'Ошибка даты';
-  }
+  return formatDate(props.order.createdAt, 'Дата заказа не указана');
 });
 
 // Перевод статуса заказа
 const translatedStatus = computed(() => {
-  const statusMap = {
+  const statusMap: Record<string, string> = {
     'PENDING': 'Обрабатывается',
     'PROCESSING': 'В обработке',
     'SHIPPED': 'Отправлен',

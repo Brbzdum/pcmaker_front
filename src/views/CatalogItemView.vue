@@ -131,7 +131,7 @@
           
           <h4>Все характеристики</h4>
           <!-- Используем метод getAllSpecs для отображения всех характеристик -->
-          <template v-for="(spec, index) in getAllSpecs()" :key="index">
+          <template v-for="(spec, _i) in getAllSpecs()" :key="_i">
             <div class="spec-row">
               <div class="spec-name">{{ formatSpecName(spec.key) }}</div>
               <div class="spec-value">{{ spec.value }}</div>

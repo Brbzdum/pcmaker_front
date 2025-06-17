@@ -340,17 +340,14 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfiguratorStore } from '@/stores/configurator'
 import { useAuthStore } from '@/stores/auth'
-import { useCartStore } from '@/stores/cart'
-import { useCompatibilityStore } from '@/stores/compatibility'
-import apiClient from '@/api/apiClient'
 import { useCatalogStore } from '@/stores/catalog'
+import { useCategoryStore } from '@/stores/category'
 
 const router = useRouter()
 const configuratorStore = useConfiguratorStore()
 const authStore = useAuthStore()
-const cartStore = useCartStore()
-const compatibilityStore = ref(useCompatibilityStore())
 const catalogStore = useCatalogStore()
+const categoryStore = useCategoryStore()
 
 const showSaveModal = ref(false)
 const configName = ref('')
@@ -608,17 +605,157 @@ const getPeripheralSelectionUrl = (type: string) => {
   // Используем тип периферии в нижнем регистре
   const typeLowerCase = type.toLowerCase();
   
-  return `/catalog?peripheralType=${typeLowerCase}`;
+  // Проверяем, что тип периферии корректный
+  if (!typeLowerCase || !peripheralTypes.value.includes(typeLowerCase)) {
+    console.warn(`Invalid peripheral type: ${type}`);
+  }
+  
+  // Выводим все категории для отладки
+  console.log(`All categories: ${categoryStore.getAllCategories.length}`);
+  categoryStore.getAllCategories.forEach(c => {
+    console.log(`Category: ${c.id}, ${c.name}, slug: ${c.slug}, isPeripheral: ${c.isPeripheral}`);
+  });
+  
+  // Находим ID категорий, соответствующих типу периферии
+  const categories = categoryStore.getAllCategories.filter(category => {
+    // Убедимся, что категория существует
+    if (!category) return false;
+    
+    // Для отладки
+    console.log(`Checking category: ${category.id}, ${category.name}, slug: ${category.slug}, isPeripheral: ${category.isPeripheral}`);
+    
+    // Проверяем, является ли категория периферией
+    if (category.isPeripheral !== true) {
+      console.log(`Category ${category.id} is not peripheral`);
+      return false;
+    }
+    
+    // Проверяем slug категории
+    if (category.slug) {
+      const slug = category.slug.toLowerCase();
+      console.log(`Comparing slugs: ${slug} vs ${typeLowerCase}`);
+      
+      // Прямое совпадение
+      if (slug === typeLowerCase) {
+        console.log(`Direct match for category ${category.id}`);
+        return true;
+      }
+      
+      // Единственное/множественное число
+      if (typeLowerCase.endsWith('s') && slug === typeLowerCase.slice(0, -1)) {
+        console.log(`Singular form match for category ${category.id}`);
+        return true;
+      }
+      
+      if (!typeLowerCase.endsWith('s') && slug === typeLowerCase + 's') {
+        console.log(`Plural form match for category ${category.id}`);
+        return true;
+      }
+    }
+    
+    // Проверяем имя категории
+    if (category.name) {
+      const name = category.name.toLowerCase();
+      console.log(`Comparing names: ${name} vs ${typeLowerCase}`);
+      
+      // Используем точное соответствие или содержание
+      if (name === typeLowerCase || name.includes(typeLowerCase) || typeLowerCase.includes(name)) {
+        console.log(`Name match for category ${category.id}`);
+        return true;
+      }
+    }
+    
+    return false;
+  });
+  
+  // Для отладки
+  console.log(`Found ${categories.length} matching categories:`, categories);
+  
+  // Если нашли категории, используем их ID для фильтрации
+  if (categories.length > 0) {
+    const categoryIds = categories.map(c => c.id).join(',');
+    console.log(`Using categoryIds: ${categoryIds}`);
+    return `/catalog?categoryIds=${categoryIds}`;
+  }
+  
+  // Если не нашли категории, используем жестко закодированные ID для известных типов периферии
+  const hardcodedCategoryIds: Record<string, string> = {
+    'keyboard': '39',
+    'mouse': '40',
+    'monitor': '38',
+    'headset': '41,49',
+    'speakers': '42',
+    'mousepad': '43,50',
+    'microphone': '44,51'
+  };
+  
+  if (hardcodedCategoryIds[typeLowerCase]) {
+    console.log(`Using hardcoded categoryIds for ${typeLowerCase}: ${hardcodedCategoryIds[typeLowerCase]}`);
+    return `/catalog?categoryIds=${hardcodedCategoryIds[typeLowerCase]}`;
+  }
+  
+  // Если всё ещё нет совпадений, используем параметр category как запасной вариант
+  console.warn(`No matching categories found for peripheral type: ${typeLowerCase}`);
+  return `/catalog?category=${encodeURIComponent(typeLowerCase)}`;
 }
 
 onMounted(async () => {
+  try {
   // Инициализируем флаг полной сборки из хранилища
   isFullBuild.value = configuratorStore.getIsFullBuild;
   
-  // Загружаем компоненты и типы периферии
-  await catalogStore.fetchComponents();
+    console.log('Loading categories and components...');
+    
+    // Загружаем компоненты, типы периферии и категории
+    await Promise.all([
+      catalogStore.fetchComponents(),
+      categoryStore.fetchRootCategories(),
+      categoryStore.fetchAllCategories()
+    ]);
   
   console.log('Peripheral types loaded:', catalogStore.getPeripheralTypes);
+    console.log('Categories loaded:', categoryStore.getAllCategories.length);
+    
+    // Выводим все категории для отладки
+    categoryStore.getAllCategories.forEach(c => {
+      console.log(`Category: ${c.id}, ${c.name}, slug: ${c.slug}, isPeripheral: ${c.isPeripheral}`);
+    });
+    
+    // Проверяем, что категории с флагом isPeripheral существуют
+    const peripheralCategories = categoryStore.getAllCategories.filter(c => c.isPeripheral === true);
+    console.log(`Found ${peripheralCategories.length} peripheral categories:`, peripheralCategories);
+    
+    // Устанавливаем соответствие между типами периферии и категориями
+    const typeToCategory = new Map();
+    for (const type of peripheralTypes.value) {
+      const matchingCategories = peripheralCategories.filter(c => {
+        if (c.slug) {
+          const slug = c.slug.toLowerCase();
+          if (slug === type || 
+              (type.endsWith('s') && slug === type.slice(0, -1)) ||
+              (!type.endsWith('s') && slug === type + 's')) {
+            return true;
+          }
+        }
+        if (c.name) {
+          const name = c.name.toLowerCase();
+          if (name.includes(type) || type.includes(name)) {
+            return true;
+          }
+        }
+        return false;
+      });
+      
+      if (matchingCategories.length > 0) {
+        typeToCategory.set(type, matchingCategories.map(c => c.id));
+        console.log(`Type ${type} matched to categories:`, matchingCategories.map(c => c.id));
+      } else {
+        console.warn(`No matching categories found for type ${type}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error in ConfiguratorView onMounted:', error);
+  }
 });
 </script>
 

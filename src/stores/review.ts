@@ -15,6 +15,7 @@ interface Review {
   isModerated: boolean
   createdAt: string
   updatedAt: string
+  reported?: boolean
 }
 
 interface ReviewDto {
@@ -55,8 +56,26 @@ export const useReviewStore = defineStore('review', {
 
       try {
         const response = await apiClient.get(`/reviews/product/${productId}`)
-        this.productReviews[productId] = response.data
-        return response.data
+        console.log('Raw reviews data:', response.data);
+        
+        // Проверяем наличие дат в каждом отзыве
+        const reviews = response.data.map((review: Review) => {
+          console.log(`Review ${review.id} date:`, review.createdAt);
+          
+          // Если дата не указана или пустая, добавляем текущую дату
+          if (!review.createdAt) {
+            console.warn(`Review ${review.id} has no date, using current date`);
+            review.createdAt = new Date().toISOString();
+          }
+          
+          return {
+            ...review,
+            reported: review.reportCount > 0
+          };
+        })
+        
+        this.productReviews[productId] = reviews
+        return reviews
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to fetch product reviews'
         return []
@@ -82,14 +101,20 @@ export const useReviewStore = defineStore('review', {
       try {
         const response = await apiClient.post(`/reviews/product/${productId}`, reviewData)
         
-        // Обновляем список отзывов для продукта
-        if (this.productReviews[productId]) {
-          this.productReviews[productId].push(response.data)
-        } else {
-          this.productReviews[productId] = [response.data]
+        // Add reported property
+        const review = {
+          ...response.data,
+          reported: response.data.reportCount > 0
         }
         
-        return response.data
+        // Обновляем список отзывов для продукта
+        if (this.productReviews[productId]) {
+          this.productReviews[productId].push(review)
+        } else {
+          this.productReviews[productId] = [review]
+        }
+        
+        return review
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to create review'
         return null
@@ -105,16 +130,22 @@ export const useReviewStore = defineStore('review', {
       try {
         const response = await apiClient.put(`/reviews/${reviewId}`, reviewData)
         
+        // Add reported property
+        const review = {
+          ...response.data,
+          reported: response.data.reportCount > 0
+        }
+        
         // Обновляем отзыв в списках, если он там есть
         for (const productId in this.productReviews) {
           const index = this.productReviews[productId].findIndex(r => r.id === reviewId)
           if (index !== -1) {
-            this.productReviews[productId][index] = response.data
+            this.productReviews[productId][index] = review
             break
           }
         }
         
-        return response.data
+        return review
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to update review'
         return null
@@ -167,18 +198,24 @@ export const useReviewStore = defineStore('review', {
       try {
         const response = await apiClient.put(`/reviews/${reviewId}/moderate?approved=${approved}`, {})
         
+        // Add reported property
+        const review = {
+          ...response.data,
+          reported: response.data.reportCount > 0
+        }
+        
         // Обновляем отзыв в списках
         this.pendingReviews = this.pendingReviews.filter(r => r.id !== reviewId)
         
         for (const productId in this.productReviews) {
           const index = this.productReviews[productId].findIndex(r => r.id === reviewId)
           if (index !== -1) {
-            this.productReviews[productId][index] = response.data
+            this.productReviews[productId][index] = review
             break
           }
         }
         
-        return response.data
+        return review
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to moderate review'
         return null
@@ -193,8 +230,13 @@ export const useReviewStore = defineStore('review', {
 
       try {
         const response = await apiClient.get('/reviews/reported')
-        this.reportedReviews = response.data
-        return response.data
+        // Add reported property
+        const reviews = response.data.map((review: Review) => ({
+          ...review,
+          reported: review.reportCount > 0
+        }))
+        this.reportedReviews = reviews
+        return reviews
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to fetch reported reviews'
         return []
@@ -209,6 +251,26 @@ export const useReviewStore = defineStore('review', {
 
       try {
         const response = await apiClient.post(`/reviews/${reviewId}/report?reason=${encodeURIComponent(reason)}`, {})
+        
+        // If the report was successful, update the review in all lists
+        if (response.data) {
+          const review = {
+            ...response.data,
+            reported: true  // Explicitly mark as reported after reporting
+          }
+          
+          // Update in product reviews
+          for (const productId in this.productReviews) {
+            const index = this.productReviews[productId].findIndex(r => r.id === reviewId)
+            if (index !== -1) {
+              this.productReviews[productId][index] = review
+              break
+            }
+          }
+          
+          return review
+        }
+        
         return response.data
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to report review'

@@ -23,9 +23,7 @@
 </template>
 
 <script setup lang="ts">
-import { useTheme } from '@/composables/useTheme'
-
-const { currentTheme } = useTheme()
+// No imports needed
 </script>
 
 <style scoped>
